@@ -5,16 +5,14 @@ import pandas as pd
 
 
 def memory_usage(dataframe: pd.DataFrame | pd.Series, verbose: bool = True) -> float:
-    """Calculates memory usage of a pandas DataFrame or Series.
-
-    Computes the total memory usage of a Pandas' object, accounting for all data types and memory optimizations.
+    """Calculates memory usage for a pandas DataFrame or Series.
     
     Args:
         dataframe: Pandas DataFrame or Series to analyze.
         verbose: If True, prints the memory usage.
 
      Returns:
-        float: Memory usage in megabytes.
+        Memory usage in megabytes, rounded to 2 significant figures.
     """
 
     # Calculates the total memory usage of the DataFrame or Series (if one-dimensional). Sums up the memory used by
@@ -35,7 +33,7 @@ def read_raw_frames(plane_folder: Path | str, frames: np.ndarray) -> np.ndarray:
     array. Handles proper alignment of different planes based on their spatial offsets.
 
     Args:
-        plane_folder: Path to the Suite2p folder containing imaging plane folders.
+        plane_folder: Path to the Suite2p folder containing imaging plane data.
         frames: NumPy array specifying which frames to read (e.g., np.arange(0,100)).
 
     Returns:
