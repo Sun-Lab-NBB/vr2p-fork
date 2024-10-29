@@ -1,6 +1,7 @@
 from suite2p.io import compute_dydx, BinaryFileCombined
 from pathlib import Path
 import numpy as np
+
 def memory_usage(df,verbose=True):
     """returns memory usage of dataframe or series
     
