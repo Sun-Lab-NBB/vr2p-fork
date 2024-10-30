@@ -1,19 +1,18 @@
-import numpy as np
-from scipy.ndimage import label
-import skimage.measure
-from skimage.measure import regionprops
-from scipy.signal import convolve2d
-import vr2p.signal
-import colorcet as cc
-import matplotlib.pyplot as plt
-import os 
-import vr2p
-from sklearn.preprocessing import MinMaxScaler
-import dask
-import dask.dataframe
-import dask.array as da
-
 from copy import deepcopy
+
+import dask
+import numpy as np
+import colorcet as cc
+import dask.array as da
+from scipy.signal import convolve2d
+from scipy.ndimage import label
+import dask.dataframe
+from skimage.measure import regionprops
+import matplotlib.pyplot as plt
+
+import vr2p
+import vr2p.signal
+
 
 def circular_connected_placefields(thres_im, binF, min_bins=3):
     """Takes thresholded binary image and creates labeled image of
@@ -83,11 +82,11 @@ def  outside_field_threshold(pf, threshold_factor=3):
 class PlaceFields1d:
     def __init__(self,label_im, binF, centers=[],bin_size=1):
         self.bin_size = bin_size
-        self.label_im = label_im.astype(np.int)
-        self.binF        = binF.astype(np.float)
+        self.label_im = label_im.astype(int)
+        self.binF        = binF.astype(float)
         if not centers:
             props = regionprops(self.label_im, self.binF, cache=False)
-            self.centers = np.array([prop['weighted_centroid'] * np.array([1,bin_size]) for prop in props])
+            self.centers = np.array([prop["weighted_centroid"] * np.array([1,bin_size]) for prop in props])
         else:
             self.centers  = centers
     @property
@@ -162,7 +161,7 @@ class PlaceFields1d:
         if vmax==None:
             vmax = np.nanquantile(data,0.9)
         # setup figure.
-        fig, axes = plt.subplots(1, 1,figsize=(2, 3),facecolor='white',dpi=dpi)
+        fig, axes = plt.subplots(1, 1,figsize=(2, 3),facecolor="white",dpi=dpi)
         if title:
             plt.title(title,fontsize=8)
         # plot heatmap
@@ -170,8 +169,8 @@ class PlaceFields1d:
             1,data.shape[0]+1]
         plt.imshow(data, cmap=cc.cm.CET_CBL2,
                 extent=extent,interpolation="none",
-                vmin = vmin, vmax=vmax, **kwargs) 
-        axes.set_aspect('auto')
+                vmin = vmin, vmax=vmax, **kwargs)
+        axes.set_aspect("auto")
         plt.xlabel("Position (cm)")
         plt.ylabel("Cell #")
         # colorbar.
@@ -217,7 +216,7 @@ class Tank1dProtocol(PlaceFields1dProtocol):
         binF,_ = vr2p.signal.bin_fluorescence_data(F,pos,edges)
         # smooth.
         binF = convolve2d(binF,np.ones((1, self.params.smooth_size))/self.params.smooth_size,
-                mode='same',boundary='wrap')
+                mode="same",boundary="wrap")
         # threshold.
         thres_binF = vr2p.signal.quantile_max_treshold(binF, self.params.base_quantile,
                            self.params.signal_threshold)
@@ -227,7 +226,7 @@ class Tank1dProtocol(PlaceFields1dProtocol):
         # filter based on outside of field threshold.
         pf = outside_field_threshold(pf,self.params.outside_threshold)
         # one bin atleast X %
-        pf = pf.remove_fields(np.argwhere(pf.max_intensity<self.params.max_int_threshold));
+        pf = pf.remove_fields(np.argwhere(pf.max_intensity<self.params.max_int_threshold))
         return pf
     def validate(self,client,num_repeats,F,pos,speed,track_length,bin_size):
         #Delta F over F zero.

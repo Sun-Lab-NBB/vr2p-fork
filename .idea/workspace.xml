@@ -5,11 +5,24 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ef33946e-c031-41a3-89ed-a42250fa70e0" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/vr2p-fork.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vr2p-fork.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/environment.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/Create multi-day vr2p ExperimentData object.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/Create multi-day vr2p ExperimentData object.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/tutorials/Cell Mask Information.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/tutorials/Cell Mask Information.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/tutorials/Field-of-view Images.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/tutorials/Field-of-view Images.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/tutorials/Fluorescence Signal Data.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/tutorials/Fluorescence Signal Data.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vr2p/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vr2p/cluster.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/cluster.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vr2p/gimbl/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/gimbl/data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vr2p/gimbl/extract.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/gimbl/extract.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vr2p/gimbl/parse.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/gimbl/parse.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vr2p/gimbl/task.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/gimbl/task.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vr2p/gimbl/transform.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/gimbl/transform.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vr2p/io.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/io.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vr2p/place_1d.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/place_1d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vr2p/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/settings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vr2p/signal.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/signal.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/vr2p/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/vr2p/utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -31,9 +44,11 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Python.settings.executor": "Run",
+    "Python.signal.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "main",
-    "last_opened_file_path": "C:/Users/ikond/miniforge3/envs/vr2p/python.exe",
+    "last_opened_file_path": "/Users/InfamousOne/Desktop/GithubRepos/Sun/vr2p-fork",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -46,8 +61,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-PY-242.23726.102" />
-        <option value="bundled-python-sdk-5e1850174b45-399fe30bd8c1-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.23726.102" />
+        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-PY-242.23339.19" />
+        <option value="bundled-python-sdk-0029f7779945-399fe30bd8c1-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.23339.19" />
       </set>
     </attachedChunks>
   </component>
@@ -62,10 +77,15 @@
       <workItem from="1730242766144" duration="160000" />
       <workItem from="1730242976256" duration="34000" />
       <workItem from="1730243153817" duration="512000" />
+      <workItem from="1730244051432" duration="7051000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/vr2p_fork$signal.coverage" NAME="signal Coverage Results" MODIFIED="1730247306903" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/vr2p" />
+    <SUITE FILE_PATH="coverage/vr2p_fork$settings.coverage" NAME="settings Coverage Results" MODIFIED="1730245387378" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/vr2p" />
   </component>
 </project>

@@ -1,12 +1,13 @@
-import pandas as pd
-from vr2p.gimbl.extract import movement_speed
-from vr2p.gimbl.transform import add_ranged_timestamp_values
-from scipy.interpolate import splprep,splev,Rbf
-from scipy import signal
 import numpy as np
+import pandas as pd
+from scipy.interpolate import Rbf, splev, splprep
 from scipy.spatial.distance import cdist
 
-class GimblData(object):
+from vr2p.gimbl.extract import movement_speed
+from vr2p.gimbl.transform import add_ranged_timestamp_values
+
+
+class GimblData:
     class IdleData:
         def __init__(self):
             self.sound = None
@@ -19,7 +20,7 @@ class GimblData(object):
             self.settings = None
             self.time = None
             self.frame = None
-    def __init__(self):    
+    def __init__(self):
         self.time = None
         self.info = None
         self.frames = None
@@ -31,7 +32,7 @@ class GimblData(object):
         self.idle = self.IdleData()
         self.linear_controller = self.ControllerData()
         self.spherical_controller = self.ControllerData()
-        
+
     def path_to_xyz(self,values,path):
         """Interpolates from path positions (1d) to xyz coordinates.
 
@@ -43,24 +44,24 @@ class GimblData(object):
             numpy array -- Interpolated values (size: [num_values x 3])
         """
         # get indices that are on the requested path.
-        ind = self.path.frame['path']==path
+        ind = self.path.frame["path"]==path
         if sum(ind)==0:
-            raise NameError(f'could not find path with name {path}')
-        df = self.position.frame.loc[ind,['x','y','z']]
-        df['path'] = self.path.frame.loc[ind,'position']
+            raise NameError(f"could not find path with name {path}")
+        df = self.position.frame.loc[ind,["x","y","z"]]
+        df["path"] = self.path.frame.loc[ind,"position"]
         # sort.
-        df= df.sort_values(by=['path'])
+        df= df.sort_values(by=["path"])
         #drop duplicates
-        df['path_r'] = df['path'].round(0)
-        df = df.drop_duplicates(subset='path_r')
+        df["path_r"] = df["path"].round(0)
+        df = df.drop_duplicates(subset="path_r")
         # b spline fit
-        tck, _= splprep([df['x'],df['y'],df['z'] ],u=df['path'], s=0.01)
+        tck, _= splprep([df["x"],df["y"],df["z"] ],u=df["path"], s=0.01)
         xi, yi, zi = splev(values, tck)
         result = np.c_[xi,yi,zi]
         if result.shape[0]==1:
             result=result.flatten()
         return result
-    
+
     def xyz_to_path(self,values):
         """Interpolates from xyz to path position based on observed values.
 
@@ -75,29 +76,29 @@ class GimblData(object):
         """
         # create fit for all paths.
         fits = []
-        path_names = self.path.frame['path'].unique()
+        path_names = self.path.frame["path"].unique()
         for path in path_names:
             # get data of path.
-            ind = self.path.frame['path']==path
-            df = self.position.frame.loc[ind,['x','y','z']]
-            df['path'] = self.path.frame.loc[ind,'position']
+            ind = self.path.frame["path"]==path
+            df = self.position.frame.loc[ind,["x","y","z"]]
+            df["path"] = self.path.frame.loc[ind,"position"]
             # sort.
-            df= df.sort_values(by=['path'])
+            df= df.sort_values(by=["path"])
             # drop duplicates
-            df['path_r'] = df['path'].round(0)
-            df = df.drop_duplicates(subset='path_r')
+            df["path_r"] = df["path"].round(0)
+            df = df.drop_duplicates(subset="path_r")
             # fit
-            fits.append(Rbf(df['x'], df['y'], df['z'], df['path'],smooth=0.01))
-        
+            fits.append(Rbf(df["x"], df["y"], df["z"], df["path"],smooth=0.01))
+
         # find closest path each point and evaluate
-        obs = self.position.frame.loc[:,['x','y','z']].to_numpy() # observed
+        obs = self.position.frame.loc[:,["x","y","z"]].to_numpy() # observed
         dist = cdist(values,obs)
         result = []
         for i, value in enumerate(values):
             ind = np.argmin(dist[i,:])
-            ind = np.argwhere(path_names == self.path.frame.loc[ind,'path'].item())[0][0]
+            ind = np.argwhere(path_names == self.path.frame.loc[ind,"path"].item())[0][0]
             pos = fits[ind](value[0],value[1],value[2])
-            result.append({'position':pos,'path':path_names[ind]})
+            result.append({"position":pos,"path":path_names[ind]})
 
         return pd.DataFrame(result)
 
@@ -110,9 +111,9 @@ class Vr2pAccessor:
     @staticmethod
     def _validate(obj):
         # verify there is a column time.
-        if 'time' not in obj.columns:
+        if "time" not in obj.columns:
             raise AttributeError("Must have 'time'.")
-    
+
     def rolling_speed(self, window_size, ignore_threshold = 50):
         """Calculates rolling movement speed. Accessible from vr2p object.
 
@@ -126,7 +127,7 @@ class Vr2pAccessor:
             [DataSeries]           -- Calculated movement speed.
         """
         return movement_speed(self._obj,window_size=window_size,ignore_threshold = ignore_threshold )
-    
+
     def ranged_values(self,df,fields):
         """Adds columns to entries of dataframe with values base on its timestamp.
         supplied dataframe gives a range of timestamp values and related values.

@@ -45,7 +45,14 @@ dependencies = [
     "numba>=0,<1",
     "suite2p>=0,<1",
     "scipy>=1,<2",
-    "pandas>=2,<3"
+    "pandas>=2,<3",
+    "ipyfilechooser>=0,<1",
+    "pyyaml>=6,<7",
+    "matplotlib>=3,<4",
+    "h5py>=3,<4",
+    "zarr>=2,<3",
+    "dask>=2024,<2025",
+    "gcsfs>=2024,<2025",
 ]
 
 [project.urls]
@@ -62,8 +69,15 @@ Documentation = "https://app.netlify.com/sites/ataraxis-video-system-api-docs/ov
 condarun = [
     "numpy>=2,<3",
     "numba>=0,<1",
-    "pandas>=2,<3",
     "scipy>=1,<2",
+    "pandas>=2,<3",
+    "ipyfilechooser>=0,<1",
+    "pyyaml>=6,<7",
+    "matplotlib>=3,<4",
+    "h5py>=3,<4",
+    "zarr>=2,<3",
+    "dask>=2024,<2025",
+    "gcsfs>=2024,<2025",
 ]
 
 # Dependencies known to be installable with conda for all development platforms (OSX ARM64, WIN AMD64, LIN AMD64).

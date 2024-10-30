@@ -1,14 +1,19 @@
 from shutil import which
+
 import dask
+
 dask.config.set({"jobqueue.lsf.use-stdin": True})
 dask.config.set({"distributed.comm.timeouts.connect": 60})
+import os
+from pathlib import Path
+
+import numpy as np
+import IPython
 import dask.array as da
 from distributed import Client, LocalCluster
 from dask_jobqueue import LSFCluster
-import os
-import numpy as np
-from pathlib import Path
-import IPython
+
+
 # this is necessary to ensure that workers get the job script from stdin
 def setup_client(account_name):
     client = get_cluster(project=account_name)
@@ -23,8 +28,7 @@ def get_jobqueue_cluster(
     threads_per_worker=1,
     **kwargs
 ):
-    """
-    Instantiate a dask_jobqueue cluster using the LSF scheduler on the Janelia Research Campus compute cluster.
+    """Instantiate a dask_jobqueue cluster using the LSF scheduler on the Janelia Research Campus compute cluster.
     This function wraps the class dask_jobqueue.LSFCLuster and instantiates this class with some sensible defaults.
     Extra kwargs added to this function will be passed to LSFCluster().
     The full API for the LSFCluster object can be found here:
@@ -38,7 +42,7 @@ def get_jobqueue_cluster(
             "export OMP_NUM_THREADS=1",
         ]
     else:
-        raise ValueError('threads_per_worker can only be 1')
+        raise ValueError("threads_per_worker can only be 1")
     USER = os.environ["USER"]
     HOME = os.environ["HOME"]
     if "local_directory" not in kwargs:
@@ -59,8 +63,7 @@ def get_jobqueue_cluster(
     return cluster
 
 def bsub_available() -> bool:
-    """
-    Returns True if the `bsub` command is available on the path, False otherwise. This is used to check whether code is
+    """Returns True if the `bsub` command is available on the path, False otherwise. This is used to check whether code is
     running on the Janelia Compute Cluster.
     -------
     """
@@ -68,24 +71,22 @@ def bsub_available() -> bool:
     return result
 
 def get_cluster(**kwargs):
-    """
-    Create a dask.distributed Client object with either a Jobqueue cluster (for use on the Janelia Compute Cluster)
+    """Create a dask.distributed Client object with either a Jobqueue cluster (for use on the Janelia Compute Cluster)
     or a LocalCluster (for use on a single machine). Keyword arguments given to this function will be forwarded to
     the `get_jobqueue_cluster` function or the LocalCluster constructor.
     """
     if bsub_available():
         cluster = get_jobqueue_cluster(**kwargs)
     else:
-        if 'host' not in kwargs:
-            kwargs['host'] = ''
+        if "host" not in kwargs:
+            kwargs["host"] = ""
         cluster = LocalCluster(**kwargs)
-    client = Client(cluster) 
+    client = Client(cluster)
     return client
 
 def blockwise(arr):
-    """
-    A generator that yields (slice, block) tuples from a dask array. This effectively breaks a dask array into separate
+    """A generator that yields (slice, block) tuples from a dask array. This effectively breaks a dask array into separate
     chunks.
     """
-    for i, sl in zip(np.ndindex(arr.numblocks), da.core.slices_from_chunks(arr.chunks)):
+    for i, sl in zip(np.ndindex(arr.numblocks), da.core.slices_from_chunks(arr.chunks), strict=False):
         yield (sl, arr.blocks[i])

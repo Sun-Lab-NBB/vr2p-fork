@@ -1,14 +1,17 @@
-import numpy as np
 import os
 import json
+import pickle
+from pathlib import Path
+
+import h5py
+import zarr
+import gcsfs
+import numpy as np
+import pandas as pd
+
 import vr2p
 from vr2p.gimbl.data import GimblData
-import pickle
-import h5py
-from pathlib import Path
-import zarr
-import pandas as pd
-import gcsfs
+
 
 class ExperimentData:
     """Holds all experimental data from one animal.
@@ -32,35 +35,35 @@ class ExperimentData:
             """
             def __init__(self,file,field):
                 self._file = file
-                self._field = field 
+                self._field = field
             def  __getattribute__(self,name):
                 print(name)
         # check if cloud path:
-        is_gcp = (file[:5].lower()=='gs://')
-        is_aws = (file[:5].lower()=='s3://')
+        is_gcp = (file[:5].lower()=="gs://")
+        is_aws = (file[:5].lower()=="s3://")
         if (not is_gcp) & (not is_aws):
             file = Path(file)
             if not file.is_dir():
                 raise NameError(f"Could not find file: {file.as_posix()}")
-            file = zarr.open(file,mode='r')
+            file = zarr.open(file,mode="r")
         if is_gcp:
             gcsmap = gcsfs.mapping.GCSMap(file)
-            file = zarr.open(gcsmap,mode='r')
+            file = zarr.open(gcsmap,mode="r")
 
         self._file = file
-        self.vr = ExperimentData.ObjectSessionData(self._file,'gimbl/vr')
-        self.log = ExperimentData.LogSessionData(self._file,'gimbl/log')
+        self.vr = ExperimentData.ObjectSessionData(self._file,"gimbl/vr")
+        self.log = ExperimentData.LogSessionData(self._file,"gimbl/log")
         self.signals = self.SignalCollection(file)
         self.images = self.ImageCollection(file)
         self.cells = self.CellCollection(file)
-        self.meta = file['meta'][()]
-        self.data_paths = file['data_paths'][()]
+        self.meta = file["meta"][()]
+        self.data_paths = file["data_paths"][()]
 
     class SignalCollection:
         def __init__(self,file):
             self._file = file
-            self.single_session = self.SignalCollectionData(file, 'single')
-            self.multi_session = self.SignalCollectionData(file, 'multi')
+            self.single_session = self.SignalCollectionData(file, "single")
+            self.multi_session = self.SignalCollectionData(file, "multi")
         class SignalCollectionData:
             """Main class that holds all sessions related data (single or multi-aligned).
             """
@@ -71,7 +74,7 @@ class ExperimentData:
                 self.Fneu = self.SessionSignalData(self._file,f"{self._field}/Fneu")       # raw neuropil signal
                 self.Fns = self.SessionSignalData(self._file, f"{self._field}/Fns")        # neuropil subtracted signal.
                 self.Fdemix = self.SessionSignalData(self._file, f"{self._field}/Fdemix")  # demixed, neuropil, and baseline subtracted signal
-                self.spks = self.SessionSignalData(self._file, f"{self._field}/spks")      # spike signal (based on Fdemix)       
+                self.spks = self.SessionSignalData(self._file, f"{self._field}/spks")      # spike signal (based on Fdemix)
 
             class SessionSignalData:
                 """Responsible for supplying data from the right session.
@@ -81,7 +84,7 @@ class ExperimentData:
                     """
                     def __init__(self,file,field):
                         self._file = file
-                        self._field = field      
+                        self._field = field
                     def __getitem__(self,indices):
                         return self._file[f"{self._field}"].oindex[indices]
                     def __getattr__(self,name):
@@ -96,8 +99,7 @@ class ExperimentData:
                 def __getitem__(self,index):
                     if not isinstance(index,int):
                         raise ValueError("vr2p: Can only access one session at a time (did you remember the session index?)")
-                    else:
-                        return self.SignalData(self._file, f"{self._field}/{index}") 
+                    return self.SignalData(self._file, f"{self._field}/{index}")
                 def __len__(self):
                     return len(self._file[f"{self._field}"])
     class LogSessionData:
@@ -109,8 +111,7 @@ class ExperimentData:
         def __getitem__(self,index):
             if not isinstance(index,int):
                 raise ValueError("can only access one session at a time")
-            else:
-                return self._file[f"{self._field}/{index}"][()].value
+            return self._file[f"{self._field}/{index}"][()].value
     class ObjectSessionData:
         """General class that handles reading pickled session info from h5 file.
         """
@@ -120,8 +121,7 @@ class ExperimentData:
         def __getitem__(self,index):
             if not (isinstance(index,int) | isinstance(index,np.int32)):
                 raise ValueError("can only access one session at a time")
-            else:
-                return self._file[f"{self._field}/{index}"][()]
+            return self._file[f"{self._field}/{index}"][()]
         def __len__(self):
             return self._file[f"{self._field}"].__len__()
         def __iter__(self):
@@ -138,8 +138,8 @@ class ExperimentData:
         """
         def __init__(self,file):
             self._file = file
-            self.original = ExperimentData.ObjectSessionData(self._file,'images/original')
-            self.registered = ExperimentData.ObjectSessionData(self._file,'images/registered')
+            self.original = ExperimentData.ObjectSessionData(self._file,"images/original")
+            self.registered = ExperimentData.ObjectSessionData(self._file,"images/registered")
 
     class CellCollection:
         """Contains cell masks from single session, and original+registered multi sessions
@@ -149,14 +149,14 @@ class ExperimentData:
                 def __init__(self,file):
                     self._file = file
                 def __getitem__(self,indices):
-                    return self._file['cells/multi/registered'][indices]
+                    return self._file["cells/multi/registered"][indices]
                 def __len__(self):
-                    return self._file['cells/multi/registered'].__len__()
+                    return self._file["cells/multi/registered"].__len__()
                 def __getattr__(self,name):
-                    return getattr(self._file['cells/multi/registered'],name)
+                    return getattr(self._file["cells/multi/registered"],name)
                 def __iter__(self):
                     self._index = -1
-                    self._values = self._file['cells/multi/registered'][()]
+                    self._values = self._file["cells/multi/registered"][()]
                     return self
                 def __next__(self):
                     self._index+=1
@@ -166,12 +166,12 @@ class ExperimentData:
                     return self._values[self._index]
             def __init__(self,file):
                 self._file = file
-                self.original = ExperimentData.ObjectSessionData(self._file,'cells/multi/original')
+                self.original = ExperimentData.ObjectSessionData(self._file,"cells/multi/original")
                 self.registered = self.RegisteredCells(file)
 
         def __init__(self,file):
             self._file = file
-            self.single_session = ExperimentData.ObjectSessionData(self._file,'cells/single')
+            self.single_session = ExperimentData.ObjectSessionData(self._file,"cells/single")
             self.multi_session = self.MultiSessionCells(file)
 
 def styles(name):

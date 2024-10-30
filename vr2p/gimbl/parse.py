@@ -1,8 +1,10 @@
-import pandas as pd
-import numpy as np
 import json
-from vr2p.gimbl.transform import assign_frame_info, ffill_missing_frame_info
+
+import numpy as np
+import pandas as pd
+
 from vr2p.gimbl.data import GimblData, FieldTypes
+from vr2p.gimbl.transform import assign_frame_info, ffill_missing_frame_info
 
 
 def parse_gimbl_log(file_loc,verbose=False):
@@ -78,7 +80,7 @@ def parse_custom_msg(df, msg, fields,frames=pd.DataFrame(),rename_columns={},msg
             if ~set(data_fields).issubset(df.columns):
                 for field in data_fields:
                     if field not in df:
-                        raise NameError(f'{field} is not a column in given dataframe:')
+                        raise NameError(f"{field} is not a column in given dataframe:")
             data = df.loc[idx,data_fields].reset_index().set_index("index")
             # rename
             for field in fields:
@@ -95,7 +97,7 @@ def parse_custom_msg(df, msg, fields,frames=pd.DataFrame(),rename_columns={},msg
     return data
 
 def parse_frames(df):
-    """reads frame timestamps from gimbl log.
+    """Reads frame timestamps from gimbl log.
     
     Arguments:
         df {dataFrame} -- complete dataframe from gimbl log
@@ -115,7 +117,7 @@ def parse_frames(df):
     return frames
 
 def parse_position(df):
-    """parses position information from gimbl log dataframe
+    """Parses position information from gimbl log dataframe
     
     Arguments:
         df {dataframe} -- complete dataframe from gimbl log
@@ -133,9 +135,9 @@ def parse_position(df):
     """
     position = parse_custom_msg(df,"Position",["name","position","heading"])
     # set name as category with only available actors.
-    position['name'] = position['name'].astype('string')
+    position["name"] = position["name"].astype("string")
     cat_type = pd.CategoricalDtype(categories=position.name.unique(), ordered=False)
-    position['name'] = position['name'].astype(cat_type)
+    position["name"] = position["name"].astype(cat_type)
     # set index.
     position = position.reset_index().set_index(["index","name"]).drop(columns="frame")
     # Convert position to cms.
@@ -200,12 +202,12 @@ def parse_path(df):
     """
     path = parse_custom_msg(df,"Path Position",["name","pathName","position"],rename_columns={"pathName":"path"})
     # set name as category with only available actors.
-    path['name'] = path['name'].astype('string')
+    path["name"] = path["name"].astype("string")
     cat_type = pd.CategoricalDtype(categories=path.name.unique(), ordered=False)
-    path['name'] = path['name'].astype(cat_type)
+    path["name"] = path["name"].astype(cat_type)
     # structure.
     path = path.reset_index().set_index(["index","name"]).drop(columns="frame")
-    path["position"] = path["position"].apply(lambda x: x / 100)    # path to cms. 
+    path["position"] = path["position"].apply(lambda x: x / 100)    # path to cms.
 
 
     return path
@@ -232,21 +234,21 @@ def get_path_position_per_frame(df,frames):
     path = parse_custom_msg(df,"Path Position",["name","pathName","position"],rename_columns={"pathName":"path"},remove_nan=True,frames=frames)
     if not path.empty:
         # set name as category with only available actors.
-        path['name'] = path['name'].astype('string')
+        path["name"] = path["name"].astype("string")
         cat_type = pd.CategoricalDtype(categories=path.name.unique(), ordered=False)
-        path['name'] = path['name'].astype(cat_type)
-        path["position"] = path["position"].apply(lambda x: x / 100)    # path to cms. 
+        path["name"] = path["name"].astype(cat_type)
+        path["position"] = path["position"].apply(lambda x: x / 100)    # path to cms.
         # first value per frame and actor.
         path = path.groupby(["frame", "name", "path"]).first()
-        path = path.reset_index().drop_duplicates(subset=["frame","name"], keep='first')   
+        path = path.reset_index().drop_duplicates(subset=["frame","name"], keep="first")
         path = path.reset_index().set_index(["frame","name"]).drop(columns="index")
         # fill in frames with missing values.
         path = ffill_missing_frame_info(path,frames)
         if path.empty==False:  # became an issue in pandas 1.1.2
             path = path.fillna(method="bfill", axis=0)
-        path = path[["time","path","position"]] 
+        path = path[["time","path","position"]]
     else:
-        path = pd.DataFrame(columns = ["time","path","position"])  
+        path = pd.DataFrame(columns = ["time","path","position"])
     return path
 
 def parse_camera(df,frames):
@@ -301,7 +303,7 @@ def parse_reward(df,frames):
     reward = parse_custom_msg(df,msg,fields,rename_columns=rename, frames=frames,
         msg_field="data.msg.action",data_field="data.msg")
     reward["type"] = reward["type"].astype("category")
-    return reward    
+    return reward
 
 def parse_idle_sound(df,frames):
     """Parse idle sound information from gimbl log
@@ -348,7 +350,7 @@ def parse_session_info(df):
     return info
 
 def parse_spherical_settings(df,frames):
-    """Parse spherical controller settings from gimbl log. 
+    """Parse spherical controller settings from gimbl log.
         Changes to settings during session are shown as new entries.
     
     Arguments:
@@ -367,17 +369,17 @@ def parse_spherical_settings(df,frames):
     msg = "Spherical Controller Settings"
     fields = ["name","isActive","loopPath",
             "gain.forward","gain.backward",
-            'gain.strafeLeft','gain.strafeRight',
-            'gain.turnLeft','gain.turnRight',
-            'trajectory.maxRotPerSec','trajectory.angleOffsetBias',
-            'trajectory.minSpeed','inputSmooth']
+            "gain.strafeLeft","gain.strafeRight",
+            "gain.turnLeft","gain.turnRight",
+            "trajectory.maxRotPerSec","trajectory.angleOffsetBias",
+            "trajectory.minSpeed","inputSmooth"]
     rename = {"isActive":"is_active",
-    'gain.forward':'gain_forward',"gain.backward":"gain_backward",
-    'gain.strafeLeft':'gain_strafe_left', 'gain.strafeRight':'gain_strafe_right',
-    'gain.turnLeft':'gain_turn_left', 'gain.turnRight':'gain_turn_right',
-    'trajectory.maxRotPerSec':'trajectory_max_rot_per_sec',
-    'trajectory.angleOffsetBias':'trajectory_angle_offset_bias',
-    'trajectory.minSpeed':'trajectory_min_speed',
+    "gain.forward":"gain_forward","gain.backward":"gain_backward",
+    "gain.strafeLeft":"gain_strafe_left", "gain.strafeRight":"gain_strafe_right",
+    "gain.turnLeft":"gain_turn_left", "gain.turnRight":"gain_turn_right",
+    "trajectory.maxRotPerSec":"trajectory_max_rot_per_sec",
+    "trajectory.angleOffsetBias":"trajectory_angle_offset_bias",
+    "trajectory.minSpeed":"trajectory_min_speed",
     "inputSmooth":"input_smooth","loopPath":"is_looping"}
     settings = parse_custom_msg(df,msg,fields,frames=frames,rename_columns=rename)
     settings["index"]= settings.groupby("name").cumcount()
@@ -401,15 +403,15 @@ def parse_spherical_data(df):
                     "yaw"           -- yaw in degrees.
                     "pitch"         -- pitch arc length in cm.
     """
-    data = parse_custom_msg(df,"Spherical Controller",["name","roll",'yaw','pitch'])
+    data = parse_custom_msg(df,"Spherical Controller",["name","roll","yaw","pitch"])
     data = data.reset_index().set_index(["index","name"]).drop(columns="frame")
     data["roll"] = data["roll"]/100 # convert to cm.
-    data["pitch"] = data["pitch"]/100 
-    data["yaw"] = data["yaw"]/1000 # to degrees. 
+    data["pitch"] = data["pitch"]/100
+    data["yaw"] = data["yaw"]/1000 # to degrees.
     return data
 
 def parse_linear_settings(df,frames):
-    """Parse linear controller settings from gimbl log. 
+    """Parse linear controller settings from gimbl log.
         Changes to settings during session are shown as new entries.
     
     Arguments:
@@ -433,7 +435,7 @@ def parse_linear_settings(df,frames):
     msg = "Linear Controller Settings"
     fields = ["name","isActive","loopPath","gain.forward","gain.backward","inputSmooth"]
     rename = {"isActive":"is_active","loopPath":"is_looping",
-    'gain.forward':'gain_forward',
+    "gain.forward":"gain_forward",
     "gain.backward":"gain_backward","inputSmooth":"input_smooth"}
     settings = parse_custom_msg(df,msg,fields,frames=frames,rename_columns=rename)
     settings["index"]= settings.groupby("name").cumcount()
@@ -461,7 +463,7 @@ def parse_linear_data(df):
     return data
 
 def get_linear_data_per_frame(df,frames):
-    """Sums movement from linear controller that falls within same frame. 
+    """Sums movement from linear controller that falls within same frame.
     Returns dataframe with same number of rows as there are microscope frames. 
     Frames without data are set to None.
     
@@ -490,7 +492,7 @@ def get_linear_data_per_frame(df,frames):
     return data
 
 def get_spherical_data_per_frame(df,frames):
-    """Sums movement from spherical controller that falls within same frame. 
+    """Sums movement from spherical controller that falls within same frame.
     Returns dataframe with same number of rows as there are microscope frames. 
     Frames without data are set to None.
     
@@ -510,14 +512,14 @@ def get_spherical_data_per_frame(df,frames):
                     "pitch"         -- pitch arc movement in cm
 
     """
-    data = parse_custom_msg(df,"Spherical Controller",["name","roll",'yaw','pitch'],frames=frames,remove_nan=True)
+    data = parse_custom_msg(df,"Spherical Controller",["name","roll","yaw","pitch"],frames=frames,remove_nan=True)
     data = data.reset_index().set_index(["index","name"])
     if not data.empty:
         data["roll"] = data["roll"]/100 # convert to cms.
         data["yaw"] = data["yaw"]/1000 # convert to degrees.
         data["pitch"] = data["pitch"]/100 # convert to cms.
         data = data.groupby(["frame", "name"]).agg({"roll":"sum","yaw":"sum","pitch":"sum","time":"first"})
-        data = ffill_missing_frame_info(data,frames, nan_fill=True,subset_columns=['roll','yaw','pitch'])
-        data = ffill_missing_frame_info(data,frames, nan_fill=False,subset_columns=['roll','yaw','pitch'])
-    data = data[["time",'roll','yaw','pitch']]
+        data = ffill_missing_frame_info(data,frames, nan_fill=True,subset_columns=["roll","yaw","pitch"])
+        data = ffill_missing_frame_info(data,frames, nan_fill=False,subset_columns=["roll","yaw","pitch"])
+    data = data[["time","roll","yaw","pitch"]]
     return data

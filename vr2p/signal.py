@@ -1,65 +1,123 @@
-from scipy.ndimage import filters
-import scipy
-import numpy as np
-import pandas as pd
 from numba import jit
+import numpy as np
+import scipy
+import pandas as pd
+from numpy.typing import NDArray
+from scipy.ndimage import filters
 from suite2p.extraction import preprocess
 
 
-def demix_traces(F, Fneu, cell_masks, ops):
-    """Demix activity from overlaping cells
+def demix_traces(raw_fluorescence: NDArray[Any], neuropil_fluorescence, cell_masks: list[dict[str, Any]],
+                 ops: dict[str, Any]) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any], NDArray[Any]]:
+    """Demixes activity from overlapping cells using linear regression.
+
+    Performs neuropil subtraction, baseline correction, and solves a linear system to separate overlapping cellular
+    signals.
 
     Args:
-        F (numpy array): Raw fluoresence activity (size: num cells x num frames)
-        Fneu ([type]): Raw neuropil activity
-        cell_masks (list of dictionaries): description of cell masks (size: num cells)
-                must contains keys "xpix", "ypix", "lam", and "overlap"
-        ops (dictionary): Parameters for demixing (must contain "baseline",'"win_baseline", "sig_baseline", and "fs")
-        l2_reg (float, optional): L2 regularization factor. Defaults to 0.01.
+        raw_fluorescence: Raw cell fluorescence activity matrix (n_cells × n_frames)
+        neuropil_fluorescence: Raw neuropil fluorescence activity matrix (n_cells × n_frames)
+        cell_masks: List of dictionaries containing cell mask properties:
+            - xpix: X coordinates of mask pixels.
+            - ypix: Y coordinates of mask pixels.
+            - lam: Weights for each pixel.
+            - overlap: Boolean mask indicating overlapping regions.
+        ops: Dictionary of demixing parameters:
+            - neucoeff: Neuropil subtraction coefficient.
+            - baseline: Baseline calculation method.
+            - win_baseline: Window size for baseline.
+            - sig_baseline: Gaussian filter sigma for baseline.
+            - fs: Sampling frequency.
+            - Ly, Lx: Frame dimensions (height, width).
+            - l2_reg: L2 regularization coefficient.
 
-    Returns:
-        [type]: [description]
+    Returns: A tuple containing 4 numpy arrays:
+        - Demixed fluorescence traces (n_cells × n_frames).
+        - Baseline-corrected traces (n_cells × n_frames).
+        - Covariance matrix of cell masks (n_cells × n_cells).
+        - Spatial weight maps for each cell (n_cells × Ly × Lx).
     """
-    # subtract neuropil signal and subtract baseline.
-    Fcorr = F - ops['neucoeff'] * Fneu
-    Fbase = preprocess(Fcorr, ops['baseline'], ops['win_baseline'],
-                       ops['sig_baseline'], ops['fs'])  # baseline subtracted signal.
-    # Collect mask information.
+    # Subtracts neuropil signal and performs baseline correction. This removes the neuropil contamination from the
+    # signal and establishes df/f baseline.
+    neuropil_subtracted = raw_fluorescence - ops["neucoeff"] * neuropil_fluorescence
+    baseline_corrected = preprocess(
+        neuropil_subtracted,
+        ops["baseline"],
+        ops["win_baseline"],
+        ops["sig_baseline"],
+        ops["fs"]
+    )
+
+    # Initializes arrays for mask processing.
+    #   - weight_maps: stores intensity weights for each cell's pixels.
+    #   - binary_masks: marks which pixels belong to each cell (for quick lookup).
+    #   - mask_overlaps: tracks how much each cell overlaps with itself and others.
     num_cells = len(cell_masks)
-    Ly, Lx = ops['Ly'], ops['Lx']
-    lammap = np.zeros((num_cells, Ly, Lx), np.float32)  # weight mask for each mask
-    Umap = np.zeros((num_cells, Ly, Lx), bool)  # binarized weight masks
-    covU = np.zeros((num_cells, num_cells), np.float32)  # holds covariance matrix.
-    for ni, mask in enumerate(cell_masks):
-        ypix, xpix, lam = mask['ypix'], mask['xpix'], mask['lam']
-        norm = lam.sum()
-        Fbase[ni] *= norm
-        lammap[ni, ypix, xpix] = lam
-        Umap[ni, ypix, xpix] = True
-        covU[ni, ni] = (lam ** 2).sum()
-    # Create covariance matrix of the masks.
-    for ni, mask in enumerate(cell_masks):
-        if mask['overlap'].sum() > 0:
-            ioverlap = mask['overlap']
-            yp, xp, lam = mask['ypix'][ioverlap], mask['xpix'][ioverlap], mask['lam'][ioverlap]
-            njs, ijs = np.nonzero(Umap[:, yp, xp])
-            for nj in np.unique(njs):
-                if nj != ni:
-                    inds = ijs[njs == nj]
-                    covU[ni, nj] = (lammap[nj, yp[inds], xp[inds]] * lam[
-                        inds]).sum()  # each entry i,j is the sum of (weights in mask_i * weights in mask_j that overlap). this is an overlap score matrix in a sense
-    # Solve for demixed traces of the cells.
-    # the equation we're solving is the movie M is a multiplication of the masks with the fluorescence V: M = U @ V.T .
-    # We have  U @ M.T = Fbase , and the solution for V with linear regression is np.linalg.solve(U @ U.T, U @ M.T)
-    # so we plug in for U @ M.T with Fbase and get the final equation
-    l2 = np.diag(covU).mean() * ops['l2_reg']
-    Fdemixed = np.linalg.solve(covU + l2 * np.eye(num_cells), Fbase)
+    height, width = ops["Ly"], ops["Lx"]
+    weight_maps = np.zeros((num_cells, height, width), dtype=np.float32)
+    binary_masks = np.zeros((num_cells, height, width), dtype=bool)
+    mask_overlaps = np.zeros((num_cells, num_cells), dtype=np.float32)
 
-    return Fdemixed, Fbase, covU, lammap
+    # Processes each cell mask and computes diagonal elements of covariance matrix (self-overlap scores).
+    # For each cell:
+    # 1. Get its pixel coordinates and weights
+    # 2. Scale its fluorescence by total weight
+    # 3. Store its spatial mask information
+    # 4. Calculate how much it overlaps with itself (diagonal of mask_overlaps)
+    for cell, mask in enumerate(cell_masks):
+        y_pixels, x_pixels, weights = mask["ypix"], mask["xpix"], mask["lam"]
+        total_weight = np.sum(weights)
+        baseline_corrected[cell] *= total_weight
+        weight_maps[cell, y_pixels, x_pixels] = weights
+        binary_masks[cell, y_pixels, x_pixels] = True
+        mask_overlaps[cell, cell] = np.sum(weights ** 2)
+
+    # Computes overlap scores between different cells.
+    # For each cell that has overlaps:
+    # 1. Extract coordinates and weights for overlapping pixels
+    # 2. Find all other cells that share these pixels using binary masks
+    # 3. For each overlapping neighbor:
+    #    - Find shared pixels between the two cells
+    #    - Calculate overlap score as sum of (weight_cell1 * weight_cell2) for shared pixels
+    #    - Store score in mask_overlaps matrix
+    for cell, mask in enumerate(cell_masks):
+        if np.sum(mask["overlap"]) > 0:
+            overlap_indices = mask["overlap"]
+            y_pixels = mask["ypix"][overlap_indices]
+            x_pixels = mask["xpix"][overlap_indices]
+            weights = mask["lam"][overlap_indices]
+
+            # Finds all cells that overlap at these pixels
+            neighbor_cells, pixel_indices = np.nonzero(binary_masks[:, y_pixels, x_pixels])
+
+            # Calculates overlap score with each neighboring cell
+            unique_neighbors = np.unique(neighbor_cells)
+            for neighbor in unique_neighbors[unique_neighbors != cell]:
+                overlap_pixels = pixel_indices[neighbor_cells == neighbor]
+                neighbor_weights = weight_maps[neighbor, y_pixels[overlap_pixels], x_pixels[overlap_pixels]]
+                # Each entry [cell_number, neighbor] is the sum of (weights in mask_cell * weights in mask_neighbor
+                # that overlap). This is an overlap score matrix in a sense.
+                mask_overlaps[cell, neighbor] = np.sum(neighbor_weights * weights[overlap_pixels])
+
+    # Solves system of linear equations to separate (demix) overlapping cell signals.
+    # Process:
+    # 1. Movie data M can be represented as: M = U @ V.T
+    #    where U = cell masks, V = true cellular activity
+    # 2. Our known quantities are:
+    #    - mask_overlaps = U @ U.T (how much cells overlap)
+    #    - baseline_corrected = U @ M.T (measured signals)
+    # 3. Add L2 regularization to stabilize solution for overlapping cells
+    regularization = np.mean(np.diag(mask_overlaps)) * ops["l2_reg"]
+    demixed_traces = np.linalg.solve(
+        mask_overlaps + regularization * np.eye(num_cells),  # Left side: U @ U.T + regularization
+        baseline_corrected  # Right side: U @ M.T
+    )  # Solves the linear system to obtain demixed traces (V)
+
+    return demixed_traces, baseline_corrected, mask_overlaps, weight_maps
 
 
-def bin_fluorescence_data(F, data, edges, method='mean', threshold=0):
-    """bin fluorescene data according to some value by averaging.
+def bin_fluorescence_data(F, data, edges, method="mean", threshold=0):
+    """Bin fluorescene data according to some value by averaging.
     
     Arguments:
         F {numpy array}             -- Fluorescence data (size: num_cells x num_frames)
@@ -75,15 +133,15 @@ def bin_fluorescence_data(F, data, edges, method='mean', threshold=0):
     # I do simple list comprehension here because I also want the values for missing bins.
     uni_bin_ids = np.arange(0, edges.size - 1)
     count = np.array([sum(bins == cbin) for cbin in uni_bin_ids])
-    if method == 'mean':
+    if method == "mean":
         F = np.array(
             [F[:, bins == cbin].mean(axis=1) if sum(bins == cbin) != 0 else np.full((F.shape[0]), np.nan) for cbin in
              uni_bin_ids]).T
-    if method == 'sum':
+    if method == "sum":
         F = np.array(
             [F[:, bins == cbin].sum(axis=1) if sum(bins == cbin) != 0 else np.full((F.shape[0]), np.nan) for cbin in
              uni_bin_ids]).T
-    if method == 'threshold sum':
+    if method == "threshold sum":
         F = np.array(
             [np.sum(F[:, bins == cbin] > threshold, axis=1) if sum(bins == cbin) != 0 else np.full((F.shape[0]), np.nan)
              for cbin in uni_bin_ids]).T
@@ -119,7 +177,7 @@ def fold_change(F, method_baseline="maximin", **kwargs):
 
 
 def baseline(F, method="maximin", sigma_baseline=20, window_size=600):
-    """calculate the baseline of fluorescence data.
+    """Calculate the baseline of fluorescence data.
 
     Arguments:
         F {numpy array}         -- Fluorescence data (num_cells x frames)
@@ -141,7 +199,7 @@ def baseline(F, method="maximin", sigma_baseline=20, window_size=600):
             Flow = filters.gaussian_filter(F, [sigma_baseline])
         Flow = filters.minimum_filter1d(Flow, window_size)
         Flow = filters.maximum_filter1d(Flow, window_size)
-    if method == 'average':
+    if method == "average":
         Flow = np.transpose(np.tile(np.mean(F, axis=1), (F.shape[1], 1)))
     return Flow
 
@@ -174,7 +232,7 @@ def quantile_max_treshold(F, base_quantile=0.25, threshold_factor=0.25):
     threshold = (base_val + ((max_val - base_val) * threshold_factor))[:, np.newaxis]
     threshold = np.tile(threshold, [1, F.shape[1]])
     F[np.isnan(F)] = -np.inf
-    return F > threshold  # nan_to_num prevents warning.
+    return threshold < F  # nan_to_num prevents warning.
 
 
 def find_calcium_events(dF, bin_size=50, base_quantile=0.5, onset_factor=3, end_factor=0.5):
@@ -209,8 +267,8 @@ def find_calcium_events(dF, bin_size=50, base_quantile=0.5, onset_factor=3, end_
     event_mask = np.zeros(dF.shape, np.bool)
     # get start and stop of events.
     for icell in range(dF.shape[0]):
-        onset_mask = scipy.signal.convolve(dF[icell, :] >= (std_quant[icell] * onset_factor), [1, -1], 'same') == 1
-        end_mask = scipy.signal.convolve(dF[icell, :] <= (std_quant[icell] * end_factor), [1, -1], 'same') == 1
+        onset_mask = scipy.signal.convolve(dF[icell, :] >= (std_quant[icell] * onset_factor), [1, -1], "same") == 1
+        end_mask = scipy.signal.convolve(dF[icell, :] <= (std_quant[icell] * end_factor), [1, -1], "same") == 1
         event_mask = match_start_end(onset_mask, end_mask, event_mask, icell, dF.shape[1])
     return event_mask, std_quant
 
