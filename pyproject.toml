@@ -14,7 +14,7 @@ readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [
-    { name = "Johan Winnubst", email = "https://github.com/sprustonlab/vr2p" },
+    { name = "Johan Winnubst"},
     { name = "Ivan Kondratyev", email = "ik278@cornell.edu" },
 ]
 maintainers = [
