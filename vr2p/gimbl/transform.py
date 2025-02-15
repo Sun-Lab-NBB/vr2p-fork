@@ -18,7 +18,7 @@ def assign_frame_info(data, frames,remove_nan=True):
     """
     frame_data = pd.concat([frames.reset_index().set_index("time"),data.reset_index().set_index("time")]).sort_index()
     idx = frame_data["frame"].isnull()
-    frame_data["frame"] = frame_data["frame"].fillna(method="ffill")
+    frame_data["frame"] = frame_data["frame"].ffill()
     # remove frame info.
     frame_data = frame_data[idx]
     frame_data = frame_data.drop(columns="index")
@@ -60,7 +60,7 @@ def ffill_missing_frame_info(frame_data, frames, nan_fill=False,subset_columns=N
         df = df.combine_first(template).sort_index()
         # ffil.
         if not nan_fill:
-            df[subset_columns] = df[subset_columns].fillna(method="ffill", axis=0)
+            df[subset_columns] = df[subset_columns].ffill(axis=0)
         # add.
         df = df.reset_index().set_index(["frame","name"])
         frame_data = frame_data.combine_first(df)
