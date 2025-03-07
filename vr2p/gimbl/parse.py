@@ -481,7 +481,7 @@ def get_linear_data_per_frame(df, frames):
     data = data.reset_index().set_index(["index", "name"])
     if not data.empty:
         data["move"] = data["move"] / 100 # convert to cm.
-        data = data.groupby(["frame", "name"]).agg({"move": "sum", "time": "first"})
+        data = data.groupby(["frame", "name"], observed=False).agg({"move": "sum", "time": "first"})
         data = ffill_missing_frame_info(data, frames, nan_fill=True, subset_columns=["move"])
         data = ffill_missing_frame_info(data, frames, nan_fill=False, subset_columns=["move"])
     data = data[["time", "move"]]
