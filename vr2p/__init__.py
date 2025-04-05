@@ -1,58 +1,83 @@
-import os
-import json
-import pickle
-from pathlib import Path
+"""VR2P: A library for analyzing virtual reality experimental data with
+longitudinal two-photon imaging."""
 
-import h5py
+import os
+from pathlib import Path
+from typing import Any, Dict, List, Union, Optional, Iterator, Tuple
+
 import zarr
 import gcsfs
+import s3fs
 import numpy as np
-import pandas as pd
+from numpy.typing import NDArray
 
 import vr2p
-from vr2p.gimbl.data import GimblData
 
 
 class ExperimentData:
-    """Holds all experimental data from one animal.
-    General Organization:
-    self.vr[session] # vr info.
-    self.log[session] raw pandas vr log.
-    self.signals.single_session.F[session][cell,frame] within session cell masks (also has F, Fneu, Fns, Fdemix, and spks)
-    self.signals.multi_session.F[session][cell,frame] registered cell masks (consistent between sessions)
-    self.images.original[session][key] original, non registered images
-    self.images.registered[session][key] registered, transformed images
-    self.cells.single_session[session][cell][key] within single session cel masks info.
-    self.cells.multi_session.original[session][cell][key] cell masks info in original, untransformed coordinates.
-    self.cells.multi_session.registered[session][cell][key] cell masks info in registered, transformed coordinates.
-    self.meta[key] processing settings and animal meta info
-    self.data_paths data paths of sessions.
+    """Container for all experimental data from an animal.
+
+    This class organizes and provides access to virtual reality data,
+    imaging signals, cell masks, and metadata across multiple sessions.
+
+    Parameters
+    ----------
+    file : str or Path
+        Path to the data directory or cloud storage location
+
+    Attributes
+    ----------
+    vr : ObjectSessionData
+        Virtual reality session data
+    log : LogSessionData
+        Raw pandas VR log data
+    signals : SignalCollection
+        Neural activity signals (F, Fneu, Fdemix, spks)
+    images : ImageCollection
+        Original and registered images
+    cells : CellCollection
+        Cell mask information for both single and multi-session data
+    meta : dict
+        Processing settings and animal metadata
+    data_paths : dict
+        Paths to session data files
+
+    Notes
+    -----
+    Data organization structure:
+    - self.vr[session] : VR info
+    - self.log[session] : Raw pandas VR log
+    - self.signals.single_session.F[session][cell,frame] : Within-session cell signals
+    - self.signals.multi_session.F[session][cell,frame] : Registered cell signals
+    - self.images.original[session][key] : Original, non-registered images
+    - self.images.registered[session][key] : Registered, transformed images
+    - self.cells.single_session[session][cell][key] : Single-session cell mask info
+    - self.cells.multi_session.original[session][cell][key] : Original coordinates
+    - self.cells.multi_session.registered[session][cell][key] : Transformed coordinates
+    - self.meta[key] : Processing settings and animal metadata
+    - self.data_paths : Session data paths
     """
 
-    def __init__ (self, file):
-        class SignalData:
-            """Actually temporarily opens the H5 file to read the data.
-            """
-            def __init__(self,file,field):
-                self._file = file
-                self._field = field
-            def  __getattribute__(self,name):
-                print(name)
-        # check if cloud path:
-        is_gcp = (file[:5].lower()=="gs://")
-        is_aws = (file[:5].lower()=="s3://")
-        if (not is_gcp) & (not is_aws):
+    def __init__(self, file: Union[str, Path]) -> None:
+        # Check if cloud path
+        is_gcp: bool = isinstance(file, str) and file.lower().startswith("gs://")
+        is_aws: bool = isinstance(file, str) and file.lower().startswith("s3://")
+
+        if not (is_gcp or is_aws):
             file = Path(file)
             if not file.is_dir():
-                raise NameError(f"Could not find file: {file.as_posix()}")
-            file = zarr.open(file,mode="r")
-        if is_gcp:
+                raise FileNotFoundError(f"Could not find directory: {file}")
+            file = zarr.open(str(file), mode="r")
+        elif is_gcp:
             gcsmap = gcsfs.mapping.GCSMap(file)
-            file = zarr.open(gcsmap,mode="r")
+            file = zarr.open(gcsmap, mode="r")
+        elif is_aws:
+            s3map = s3fs.S3Map(file)
+            file = zarr.open(s3map, mode="r")
 
         self._file = file
-        self.vr = ExperimentData.ObjectSessionData(self._file,"gimbl/vr")
-        self.log = ExperimentData.LogSessionData(self._file,"gimbl/log")
+        self.vr = ExperimentData.ObjectSessionData(self._file, "gimbl/vr")
+        self.log = ExperimentData.LogSessionData(self._file, "gimbl/log")
         self.signals = self.SignalCollection(file)
         self.images = self.ImageCollection(file)
         self.cells = self.CellCollection(file)
@@ -60,123 +85,286 @@ class ExperimentData:
         self.data_paths = file["data_paths"][()]
 
     class SignalCollection:
-        def __init__(self,file):
+        """Collection of neural activity signals across sessions.
+
+        Parameters
+        ----------
+        file : zarr.Group
+            Zarr group containing signal data
+
+        Attributes
+        ----------
+        single_session : SignalCollectionData
+            Single session data without alignment
+        multi_session : SignalCollectionData
+            Multi-session data with alignment between sessions
+        """
+
+        def __init__(self, file: zarr.Group) -> None:
             self._file = file
-            self.single_session = self.SignalCollectionData(file, "single")
-            self.multi_session = self.SignalCollectionData(file, "multi")
+            self.single_session = self.SignalCollectionData(file, "single_session")
+            self.multi_session = self.SignalCollectionData(file, "multi_session")
+
         class SignalCollectionData:
-            """Main class that holds all sessions related data (single or multi-aligned).
+            """Container for session-related neural signal data.
+
+            Holds all signal types (raw, neuropil, etc.) for either 
+            single-session or multi-session aligned data.
+
+            Parameters
+            ----------
+            file : zarr.Group
+                Zarr group containing signal data
+            field : str
+                Either "single_session" or "multi_session" to specify data type
+
+            Attributes
+            ----------
+            F : SessionSignalData
+                Raw cell fluorescence signal
+            Fneu : SessionSignalData
+                Raw neuropil fluorescence signal
+            Fns : SessionSignalData
+                Neuropil-subtracted fluorescence signal
+            Fdemix : SessionSignalData
+                Demixed, neuropil and baseline subtracted signal
+            spks : SessionSignalData
+                Inferred spike signal (based on Fdemix)
             """
-            def __init__(self,file,field):
+
+            def __init__(self, file: zarr.Group, field: str) -> None:
                 self._file = file
                 self._field = field
-                self.F = self.SessionSignalData(self._file, f"{self._field}/F")            # raw cell signal
-                self.Fneu = self.SessionSignalData(self._file,f"{self._field}/Fneu")       # raw neuropil signal
-                self.Fns = self.SessionSignalData(self._file, f"{self._field}/Fns")        # neuropil subtracted signal.
-                self.Fdemix = self.SessionSignalData(self._file, f"{self._field}/Fdemix")  # demixed, neuropil, and baseline subtracted signal
-                self.spks = self.SessionSignalData(self._file, f"{self._field}/spks")      # spike signal (based on Fdemix)
+                self.F = self.SessionSignalData(self._file, f"{self._field}/F")
+                self.Fneu = self.SessionSignalData(self._file, f"{self._field}/Fneu")
+                self.Fns = self.SessionSignalData(self._file, f"{self._field}/Fns")
+                self.Fdemix = self.SessionSignalData(self._file, f"{self._field}/Fdemix")
+                self.spks = self.SessionSignalData(self._file, f"{self._field}/spks")
 
             class SessionSignalData:
-                """Responsible for supplying data from the right session.
+                """Provides access to signal data for specific sessions.
+
+                Parameters
+                ----------
+                file : zarr.Group
+                    Zarr group containing signal data
+                field : str
+                    Path to signal data within the zarr file
                 """
+
                 class SignalData:
-                    """Actually temporarily opens the H5 file to read the data.
+                    """Handles direct access to signal data arrays.
+
+                    Parameters
+                    ----------
+                    file : zarr.Group
+                        Zarr group containing signal data
+                    field : str
+                        Complete path to specific signal data
                     """
-                    def __init__(self,file,field):
+
+                    def __init__(self, file: zarr.Group, field: str) -> None:
                         self._file = file
                         self._field = field
-                    def __getitem__(self,indices):
+
+                    def __getitem__(self, indices: Union[int, Tuple[int, int]]) -> Any:
                         return self._file[f"{self._field}"].oindex[indices]
-                    def __getattr__(self,name):
-                        return getattr(self._file[f"{self._field}"],name)
+
+                    def __getattr__(self, name: str) -> Any:
+                        return getattr(self._file[f"{self._field}"], name)
+
                     @property
-                    def array(self):
+                    def array(self) -> NDArray:
+                        """Get the full underlying array."""
                         return self._file[f"{self._field}"]
 
-                def __init__(self,file,field):
+                def __init__(self, file: zarr.Group, field: str) -> None:
                     self._file = file
                     self._field = field
-                def __getitem__(self,index):
-                    if not isinstance(index,int):
-                        raise ValueError("vr2p: Can only access one session at a time (did you remember the session index?)")
+
+                def __getitem__(self, index: int) -> SignalData:
+                    if not isinstance(index, int):
+                        raise ValueError(
+                            "vr2p: Can only access one session at a time "
+                            "(Do you remember the session index?)"
+                        )
                     return self.SignalData(self._file, f"{self._field}/{index}")
-                def __len__(self):
+
+                def __len__(self) -> int:
                     return len(self._file[f"{self._field}"])
     class LogSessionData:
-        """General class that handles reading pickled session info from h5 file.
+        """Handles access to pickled session information from zarr file.
+
+        Parameters
+        ----------
+        file : zarr.Group
+            Zarr group containing log data
+        field : str
+            Path to log data within the zarr file
         """
-        def __init__(self,file,field):
+
+        def __init__(self, file: zarr.Group, field: str) -> None:
             self._file = file
             self._field = field
-        def __getitem__(self,index):
-            if not isinstance(index,int):
+
+        def __getitem__(self, index: int) -> object:
+            if not isinstance(index, int):
                 raise ValueError("can only access one session at a time")
             return self._file[f"{self._field}/{index}"][()].value
+
     class ObjectSessionData:
-        """General class that handles reading pickled session info from h5 file.
+        """Handles access to pickled session objects from zarr file.
+
+        Provides iteration capabilities over sessions.
+
+        Parameters
+        ----------
+        file : zarr.Group
+            Zarr group containing session data
+        field : str
+            Path to session data within the zarr file
         """
-        def __init__(self,file,field):
+
+        def __init__(self, file: zarr.Group, field: str) -> None:
             self._file = file
             self._field = field
-        def __getitem__(self,index):
-            if not (isinstance(index,int) | isinstance(index,np.int32)):
+            self.index = -1
+
+        def __getitem__(self, index: Union[int, np.int32]) -> Any:
+            if not (isinstance(index, int) or isinstance(index, np.int32)):
                 raise ValueError("can only access one session at a time")
             return self._file[f"{self._field}/{index}"][()]
-        def __len__(self):
+
+        def __len__(self) -> int:
             return self._file[f"{self._field}"].__len__()
-        def __iter__(self):
+
+        def __iter__(self) -> 'ExperimentData.ObjectSessionData':
             self.index = -1
             return self
-        def __next__(self):
-            self.index+=1
+
+        def __next__(self) -> Any:
+            self.index += 1
             # Stop iteration if limit is reached
             if self.index == len(self):
                 raise StopIteration
             return self.__getitem__(self.index)
+
     class ImageCollection:
-        """Contains original and registered images
         """
-        def __init__(self,file):
+        Contains original and registered imaging data.
+        
+        Parameters
+        ----------
+        file : zarr.Group
+            Zarr group containing image data
+            
+        Attributes
+        ----------
+        original : ObjectSessionData
+            Original, non-registered images
+        registered : ObjectSessionData
+            Registered, transformed images
+        """
+        
+        def __init__(self, file: zarr.Group) -> None:
             self._file = file
-            self.original = ExperimentData.ObjectSessionData(self._file,"images/original")
-            self.registered = ExperimentData.ObjectSessionData(self._file,"images/registered")
+            self.original = ExperimentData.ObjectSessionData(self._file, "images/original")
+            self.registered = ExperimentData.ObjectSessionData(self._file, "images/registered")
 
     class CellCollection:
-        """Contains cell masks from single session, and original+registered multi sessions
+        """Contains cell masks from single and multi-session experiments.
+
+        Parameters
+        ----------
+        file : zarr.Group
+            Zarr group containing cell data
+
+        Attributes
+        ----------
+        single_session : ObjectSessionData
+            Cell masks from single-session data
+        multi_session : MultiSessionCells
+            Cell masks from multi-session data in both original and registered coordinates
         """
+
+        def __init__(self, file: zarr.Group) -> None:
+            self._file = file
+            self.single_session = ExperimentData.ObjectSessionData(self._file, "cells/single_session")
+            self.multi_session = self.MultiSessionCells(file)
+
         class MultiSessionCells:
+            """Container for multi-session cell data in original and registered formats.
+
+            Parameters
+            ----------
+            file : zarr.Group
+                Zarr group containing multi-session cell data
+
+            Attributes
+            ----------
+            original : ObjectSessionData
+                Cell masks in original coordinates
+            registered : RegisteredCells
+                Cell masks in registered, transformed coordinates
+            """
+
+            def __init__(self, file: zarr.Group) -> None:
+                self._file = file
+                self.original = ExperimentData.ObjectSessionData(self._file, "cells/multi_session/original")
+                self.registered = self.RegisteredCells(file)
+
             class RegisteredCells:
-                def __init__(self,file):
+                """Provides access to registered cell data with iteration capability.
+
+                Parameters
+                ----------
+                file : zarr.Group
+                    Zarr group containing registered cell data
+                """
+
+                def __init__(self, file: zarr.Group) -> None:
                     self._file = file
-                def __getitem__(self,indices):
-                    return self._file["cells/multi/registered"][indices]
-                def __len__(self):
-                    return self._file["cells/multi/registered"].__len__()
-                def __getattr__(self,name):
-                    return getattr(self._file["cells/multi/registered"],name)
-                def __iter__(self):
                     self._index = -1
-                    self._values = self._file["cells/multi/registered"][()]
+                    self._values = None
+
+                def __getitem__(self, indices: Any) -> Any:
+                    return self._file["cells/multi_session/registered"][indices]
+
+                def __len__(self) -> int:
+                    return self._file["cells/multi_session/registered"].__len__()
+
+                def __getattr__(self, name: str) -> Any:
+                    return getattr(self._file["cells/multi_session/registered"], name)
+
+                def __iter__(self) -> 'ExperimentData.CellCollection.MultiSessionCells.RegisteredCells':
+                    self._index = -1
+                    self._values = self._file["cells/multi_session/registered"][()]
                     return self
-                def __next__(self):
-                    self._index+=1
+
+                def __next__(self) -> Any:
+                    self._index += 1
                     # Stop iteration if limit is reached
                     if self._index == len(self._values):
                         raise StopIteration
                     return self._values[self._index]
-            def __init__(self,file):
-                self._file = file
-                self.original = ExperimentData.ObjectSessionData(self._file,"cells/multi/original")
-                self.registered = self.RegisteredCells(file)
 
-        def __init__(self,file):
-            self._file = file
-            self.single_session = ExperimentData.ObjectSessionData(self._file,"cells/single")
-            self.multi_session = self.MultiSessionCells(file)
+def styles(name: str) -> str:
+    """Get the path to a matplotlib style file.
 
-def styles(name):
-    file = os.path.join(os.path.dirname(vr2p.__file__),f"styles/{name}.mplstyle")
+    Parameters
+    ----------
+    name : str
+        Name of the style file (without extension)
+
+    Returns
+    -------
+    str
+        Full path to the requested style file
+    """
+    file = os.path.join(os.path.dirname(vr2p.__file__), f"styles/{name}.mplstyle")
     return file
 
-def test():
+
+def test() -> None:
+    """Simple test function to verify the library is working."""
     print("Hello World!")
