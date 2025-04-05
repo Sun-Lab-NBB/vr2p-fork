@@ -58,6 +58,7 @@ def _prepare_data_paths(data_info: Dict[str, Any], info: Dict[str, Any]) -> List
 
     return natsorted(data_paths)
 
+
 def _add_imaging_data(
     zarr_file: zarr.Group,
     folder_path: Path,
@@ -144,6 +145,7 @@ def _add_imaging_data(
                 data=signal_data,
                 chunks=(1000, 10000)
             )
+
 
 def _process_vr_data(
     zarr_file: zarr.Group,
@@ -240,7 +242,8 @@ def _process_multi_session(
     backwards_deformed: np.ndarray,
     trans_images: np.ndarray,
     original_images: np.ndarray,
-    counter: int
+    counter: int,
+    settings: Dict[str, Any]
 ) -> None:
     """Process multi-session data.
 
@@ -262,12 +265,14 @@ def _process_multi_session(
         Original images
     counter : int
         Current session index
+    settings : Dict[str, Any]
+        Processing settings
     """
     session_path = multiday_folder / "sessions" / data_path
     stat = backwards_deformed[multi_index]
 
     # Store fluorescence data
-    _add_imaging_data(zarr_file, session_path, "multi_session", stat, counter, None, None)
+    _add_imaging_data(zarr_file, session_path, "multi_session", stat, counter, None, settings)
 
     # Store cell masks and images
     zarr_file.require_group("cells/multi_session/original").create_dataset(
@@ -462,7 +467,7 @@ def process_session_data(data_info: Dict[str, Any], settings: Dict[str, Any]) ->
             object_codec=numcodecs.Pickle()
         )
 
-                # Process each session
+        # Process each session
         for counter, data_path in tqdm(enumerate(data_paths), desc="Processing session", total=len(data_paths)):
             multi_index = np.argwhere(np.array(info["data_paths"]) == data_path).squeeze()
 
@@ -477,7 +482,8 @@ def process_session_data(data_info: Dict[str, Any], settings: Dict[str, Any]) ->
             if multi_index.size != 0:
                 _process_multi_session(
                     f, multiday_folder, data_path, multi_index,
-                    backwards_deformed, trans_images, original_images, counter
+                    backwards_deformed, trans_images, original_images, counter,
+                    settings
                 )
             else:
                 _process_individual_session(
