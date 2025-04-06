@@ -20,42 +20,29 @@ class ExperimentData:
     This class organizes and provides access to virtual reality data,
     imaging signals, cell masks, and metadata across multiple sessions.
 
-    Parameters
-    ----------
-    file : str or Path
-        Path to the data directory or cloud storage location
+    Args:
+        file (str | Path): Path to the data directory or cloud storage location.
 
-    Attributes
-    ----------
-    vr : ObjectSessionData
-        Virtual reality session data
-    log : LogSessionData
-        Raw pandas VR log data
-    signals : SignalCollection
-        Neural activity signals (F, Fneu, Fdemix, spks)
-    images : ImageCollection
-        Original and registered images
-    cells : CellCollection
-        Cell mask information for both single and multi-session data
-    meta : dict
-        Processing settings and animal metadata
-    data_paths : dict
-        Paths to session data files
+    Attributes:
+        vr (ObjectSessionData): Virtual reality session data.
+        log (LogSessionData): Raw pandas VR log data.
+        signals (SignalCollection): Neural activity signals (F, Fneu, Fns, Fdemix, spks).
+        images (ImageCollection): Original and registered images.
+        cells (CellCollection): Cell mask information for both single and multi-session data.
+        meta (dict): Processing settings and animal metadata.
+        data_paths (dict): Paths to session data files.
 
-    Notes
-    -----
-    Data organization structure:
-    - self.vr[session] : VR info
-    - self.log[session] : Raw pandas VR log
-    - self.signals.single_session.F[session][cell,frame] : Within-session cell signals
-    - self.signals.multi_session.F[session][cell,frame] : Registered cell signals
-    - self.images.original[session][key] : Original, non-registered images
-    - self.images.registered[session][key] : Registered, transformed images
-    - self.cells.single_session[session][cell][key] : Single-session cell mask info
-    - self.cells.multi_session.original[session][cell][key] : Original coordinates
-    - self.cells.multi_session.registered[session][cell][key] : Transformed coordinates
-    - self.meta[key] : Processing settings and animal metadata
-    - self.data_paths : Session data paths
+    Notes:
+        Data organization structure:
+        - self.vr[session]: VR info.
+        - self.log[session]: Raw pandas VR log.
+        - self.signals.single_session.F[session][cell, frame]: Within-session cell signals.
+        - self.signals.multi_session.F[session][cell, frame]: Registered cell signals.
+        - self.images.original[session][key]: Original, non-registered images.
+        - self.images.registered[session][key]: Registered, transformed images.
+        - self.cells.single_session[session][cell][key]: Single-session cell mask info.
+        - self.cells.multi_session.original[session][cell][key]: Original coordinates.
+        - self.cells.multi_session.registered[session][cell][key]: Transformed coordinates.
     """
 
     def __init__(self, file: Union[str, Path]) -> None:
@@ -87,17 +74,12 @@ class ExperimentData:
     class SignalCollection:
         """Collection of neural activity signals across sessions.
 
-        Parameters
-        ----------
-        file : zarr.Group
-            Zarr group containing signal data
+        Args:
+            file (zarr.Group): Zarr group containing signal data.
 
-        Attributes
-        ----------
-        single_session : SignalCollectionData
-            Single session data without alignment
-        multi_session : SignalCollectionData
-            Multi-session data with alignment between sessions
+        Attributes:
+            single_session (SignalCollectionData): Single session data without alignment.
+            multi_session (SignalCollectionData): Multi-session data with alignment between sessions.
         """
 
         def __init__(self, file: zarr.Group) -> None:
@@ -108,28 +90,19 @@ class ExperimentData:
         class SignalCollectionData:
             """Container for session-related neural signal data.
 
-            Holds all signal types (raw, neuropil, etc.) for either 
+            Holds all signal types (raw, neuropil, etc.) for either
             single-session or multi-session aligned data.
 
-            Parameters
-            ----------
-            file : zarr.Group
-                Zarr group containing signal data
-            field : str
-                Either "single_session" or "multi_session" to specify data type
+            Args:
+                file (zarr.Group): Zarr group containing signal data.
+                field (str): Either "single_session" or "multi_session" to specify data type.
 
-            Attributes
-            ----------
-            F : SessionSignalData
-                Raw cell fluorescence signal
-            Fneu : SessionSignalData
-                Raw neuropil fluorescence signal
-            Fns : SessionSignalData
-                Neuropil-subtracted fluorescence signal
-            Fdemix : SessionSignalData
-                Demixed, neuropil and baseline subtracted signal
-            spks : SessionSignalData
-                Inferred spike signal (based on Fdemix)
+            Attributes:
+                F (SessionSignalData): Raw cell fluorescence signal.
+                Fneu (SessionSignalData): Raw neuropil fluorescence signal.
+                Fns (SessionSignalData): Neuropil-subtracted fluorescence signal.
+                Fdemix (SessionSignalData): Demixed, neuropil and baseline subtracted signal.
+                spks (SessionSignalData): Inferred spike signal (based on Fdemix).
             """
 
             def __init__(self, file: zarr.Group, field: str) -> None:
@@ -144,23 +117,17 @@ class ExperimentData:
             class SessionSignalData:
                 """Provides access to signal data for specific sessions.
 
-                Parameters
-                ----------
-                file : zarr.Group
-                    Zarr group containing signal data
-                field : str
-                    Path to signal data within the zarr file
+                Args:
+                    file (zarr.Group): Zarr group containing signal data.
+                    field (str): Path to signal data within the zarr file.
                 """
 
                 class SignalData:
                     """Handles direct access to signal data arrays.
 
-                    Parameters
-                    ----------
-                    file : zarr.Group
-                        Zarr group containing signal data
-                    field : str
-                        Complete path to specific signal data
+                    Args:
+                        file (zarr.Group): Zarr group containing signal data.
+                        field (str): Complete path to specific signal data.
                     """
 
                     def __init__(self, file: zarr.Group, field: str) -> None:
@@ -193,14 +160,11 @@ class ExperimentData:
                 def __len__(self) -> int:
                     return len(self._file[f"{self._field}"])
     class LogSessionData:
-        """Handles access to pickled session information from zarr file.
+        """Handles access to pickled session information from a zarr file.
 
-        Parameters
-        ----------
-        file : zarr.Group
-            Zarr group containing log data
-        field : str
-            Path to log data within the zarr file
+        Args:
+            file (zarr.Group): Zarr group containing log data.
+            field (str): Path to log data within the zarr file.
         """
 
         def __init__(self, file: zarr.Group, field: str) -> None:
@@ -213,16 +177,13 @@ class ExperimentData:
             return self._file[f"{self._field}/{index}"][()].value
 
     class ObjectSessionData:
-        """Handles access to pickled session objects from zarr file.
+        """Handles access to pickled session objects from a zarr file.
 
         Provides iteration capabilities over sessions.
 
-        Parameters
-        ----------
-        file : zarr.Group
-            Zarr group containing session data
-        field : str
-            Path to session data within the zarr file
+        Args:
+            file (zarr.Group): Zarr group containing session data.
+            field (str): Path to session data within the zarr file.
         """
 
         def __init__(self, file: zarr.Group, field: str) -> None:
@@ -250,22 +211,16 @@ class ExperimentData:
             return self.__getitem__(self.index)
 
     class ImageCollection:
+        """Contains original and registered imaging data.
+
+        Args:
+            file (zarr.Group): Zarr group containing image data.
+
+        Attributes:
+            original (ObjectSessionData): Original, non-registered images.
+            registered (ObjectSessionData): Registered, transformed images.
         """
-        Contains original and registered imaging data.
-        
-        Parameters
-        ----------
-        file : zarr.Group
-            Zarr group containing image data
-            
-        Attributes
-        ----------
-        original : ObjectSessionData
-            Original, non-registered images
-        registered : ObjectSessionData
-            Registered, transformed images
-        """
-        
+
         def __init__(self, file: zarr.Group) -> None:
             self._file = file
             self.original = ExperimentData.ObjectSessionData(self._file, "images/original")
@@ -274,52 +229,44 @@ class ExperimentData:
     class CellCollection:
         """Contains cell masks from single and multi-session experiments.
 
-        Parameters
-        ----------
-        file : zarr.Group
-            Zarr group containing cell data
+        Args:
+            file (zarr.Group): Zarr group containing cell data.
 
-        Attributes
-        ----------
-        single_session : ObjectSessionData
-            Cell masks from single-session data
-        multi_session : MultiSessionCells
-            Cell masks from multi-session data in both original and registered coordinates
+        Attributes:
+            single_session (ObjectSessionData): Cell masks from single-session data.
+            multi_session (MultiSessionCells): Cell masks from multi-session data in both original and registered coordinates.
         """
 
         def __init__(self, file: zarr.Group) -> None:
             self._file = file
-            self.single_session = ExperimentData.ObjectSessionData(self._file, "cells/single_session")
+            self.single_session = ExperimentData.ObjectSessionData(
+                self._file, "cells/single_session"
+            )
             self.multi_session = self.MultiSessionCells(file)
 
         class MultiSessionCells:
             """Container for multi-session cell data in original and registered formats.
 
-            Parameters
-            ----------
-            file : zarr.Group
-                Zarr group containing multi-session cell data
+            Args:
+                file (zarr.Group): Zarr group containing multi-session cell data.
 
-            Attributes
-            ----------
-            original : ObjectSessionData
-                Cell masks in original coordinates
-            registered : RegisteredCells
-                Cell masks in registered, transformed coordinates
+            Attributes:
+                original (ObjectSessionData): Cell masks in original coordinates.
+                registered (RegisteredCells): Cell masks in registered, transformed coordinates.
             """
 
             def __init__(self, file: zarr.Group) -> None:
                 self._file = file
-                self.original = ExperimentData.ObjectSessionData(self._file, "cells/multi_session/original")
+                self.original = ExperimentData.ObjectSessionData(
+                    self._file, "cells/multi_session/original"
+                )
                 self.registered = self.RegisteredCells(file)
 
             class RegisteredCells:
                 """Provides access to registered cell data with iteration capability.
 
-                Parameters
-                ----------
-                file : zarr.Group
-                    Zarr group containing registered cell data
+                Args:
+                    file (zarr.Group): Zarr group containing registered cell data.
                 """
 
                 def __init__(self, file: zarr.Group) -> None:
@@ -336,7 +283,7 @@ class ExperimentData:
                 def __getattr__(self, name: str) -> Any:
                     return getattr(self._file["cells/multi_session/registered"], name)
 
-                def __iter__(self) -> 'ExperimentData.CellCollection.MultiSessionCells.RegisteredCells':
+                def __iter__(self) -> "ExperimentData.CellCollection.MultiSessionCells.RegisteredCells":
                     self._index = -1
                     self._values = self._file["cells/multi_session/registered"][()]
                     return self
@@ -351,20 +298,11 @@ class ExperimentData:
 def styles(name: str) -> str:
     """Get the path to a matplotlib style file.
 
-    Parameters
-    ----------
-    name : str
-        Name of the style file (without extension)
+    Args:
+        name (str): Name of the style file (without extension).
 
-    Returns
-    -------
-    str
-        Full path to the requested style file
+    Returns:
+        str: Full path to the requested style file.
     """
     file = os.path.join(os.path.dirname(vr2p.__file__), f"styles/{name}.mplstyle")
     return file
-
-
-def test() -> None:
-    """Simple test function to verify the library is working."""
-    print("Hello World!")

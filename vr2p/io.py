@@ -12,29 +12,41 @@ import numcodecs
 from tqdm import tqdm
 from suite2p.extraction import dcnv
 
-from vr2p.signal import demix_traces
+from vr2p.signal_processing import demix_traces
 from vr2p.gimbl.parse import parse_gimbl_log
 
 
-def _prepare_data_paths(data_info: Dict[str, Any], info: Dict[str, Any]) -> List[str]:
+class LogFile:
+    """Container for storing DataFrame logs in zarr format.
+
+    This class provides a simple wrapper to store pandas DataFrames
+    in the zarr file structure.
+
+    Attributes:
+        value (pandas.DataFrame): The stored DataFrame.
+    """
+
+    def __init__(self, value: Any) -> None:
+        """Initialize the LogFile with a DataFrame.
+
+        Args:
+            value (pandas.DataFrame): DataFrame containing log data.
+        """
+        self.value = value
+
+
+def _prepare_data_paths(data_info: dict[str, Any], info: dict[str, Any]) -> list[str]:
     """Prepare and validate data paths for processing.
 
-    Parameters
-    ----------
-    data_info : dict
-        Information about data locations
-    info : dict
-        Processed information about sessions
+    Args:
+        data_info (dict): Information about data locations.
+        info (dict): Processed information about sessions.
 
-    Returns
-    -------
-    List[str]
-        Sorted list of validated data paths
+    Returns:
+        list[str]: Sorted list of validated data paths.
 
-    Raises
-    ------
-    ValueError
-        If session paths are invalid or duplicated
+    Raises:
+        ValueError: If session paths are invalid or duplicated.
     """
     data_paths = info["data_paths"].copy()
 
@@ -63,29 +75,21 @@ def _add_imaging_data(
     zarr_file: zarr.Group,
     folder_path: Path,
     group: str,
-    stat: np.ndarray,
+    stat: NDArray[Any],
     counter: int,
-    selected_cells: Optional[List[bool]] = None,
-    settings: Optional[Dict[str, Any]] = None
+    selected_cells: Optional[list[bool]] = None,
+    settings: Optional[dict[str, Any]] = None,
 ) -> None:
-    """Load, process and add imaging data to the zarr file.
+    """Load, process, and add imaging data to the zarr file.
 
-    Parameters
-    ----------
-    zarr_file : zarr.Group
-        Open zarr file for writing
-    folder_path : Path
-        Path to the data folder
-    group : str
-        Group name for data organization ('single_session' or 'multi_session')
-    stat : np.ndarray
-        Cell statistics data
-    counter : int
-        Current session index
-    selected_cells : list of bool, optional
-        Boolean mask for selecting cells
-    settings : dict, optional
-        Processing settings required for demixing
+    Args:
+        zarr_file (zarr.Group): Open zarr file for writing.
+        folder_path (Path): Path to the data folder.
+        group (str): Group name for data organization ('single_session' or 'multi_session').
+        stat (NDArray[Any]): Cell statistics data.
+        counter (int): Current session index.
+        selected_cells (list[bool], optional): Boolean mask for selecting cells. Defaults to None.
+        settings (dict, optional): Processing settings required for demixing. Defaults to None.
     """
     # Load fluorescence data
     if selected_cells is not None:
@@ -153,18 +157,16 @@ def _process_vr_data(
     data_path: str,
     counter: int
 ) -> None:
-    """Process VR data and store in zarr file.
+    """Process VR data and store it in a zarr file.
 
-    Parameters
-    ----------
-    zarr_file : zarr.Group
-        Open zarr file for writing
-    data_info : dict
-        Information about data locations
-    data_path : str
-        Path to the current session's data
-    counter : int
-        Current session index
+    Args:
+        zarr_file (zarr.Group): Open zarr file for writing.
+        data_info (dict): Information about data locations.
+        data_path (str): Path to the current session's data.
+        counter (int): Current session index.
+
+    Raises:
+        NameError: If the Gimbl log file cannot be found or multiple log files are detected.
     """
     log_file = find_gimbl_log(Path(data_info["data"]["local_processed_root"]) / data_path)
     df, vr_info = parse_gimbl_log(log_file)
@@ -190,18 +192,13 @@ def _process_single_session(
     settings: Dict[str, Any],
     counter: int
 ) -> None:
-    """Process single session data.
+    """Process single session data and store it in a zarr file.
 
-    Parameters
-    ----------
-    zarr_file : zarr.Group
-        Open zarr file for writing
-    session_path : Path
-        Path to the session data
-    settings : dict
-        Processing settings
-    counter : int
-        Current session index
+    Args:
+        zarr_file (zarr.Group): Open zarr file for writing.
+        session_path (Path): Path to the session data.
+        settings (dict): Processing settings.
+        counter (int): Current session index.
     """
     # Read cell info
     stat = np.load(session_path / "stat.npy", allow_pickle=True)
@@ -245,28 +242,18 @@ def _process_multi_session(
     counter: int,
     settings: Dict[str, Any]
 ) -> None:
-    """Process multi-session data.
+    """Process multi-session data and store it in a zarr file.
 
-    Parameters
-    ----------
-    zarr_file : zarr.Group
-        Open zarr file for writing
-    multiday_folder : Path
-        Path to the multiday data folder
-    data_path : str
-        Path to the current session's data
-    multi_index : np.ndarray
-        Index of this session in the multi-session structure
-    backwards_deformed : np.ndarray
-        Backwards deformed cell masks
-    trans_images : np.ndarray
-        Transformed images
-    original_images : np.ndarray
-        Original images
-    counter : int
-        Current session index
-    settings : Dict[str, Any]
-        Processing settings
+    Args:
+        zarr_file (zarr.Group): Open zarr file for writing.
+        multiday_folder (Path): Path to the multiday data folder.
+        data_path (str): Path to the current session's data.
+        multi_index (np.ndarray): Index of this session in the multi-session structure.
+        backwards_deformed (np.ndarray): Backwards deformed cell masks.
+        trans_images (np.ndarray): Transformed images.
+        original_images (np.ndarray): Original images.
+        counter (int): Current session index.
+        settings (dict): Processing settings.
     """
     session_path = multiday_folder / "sessions" / data_path
     stat = backwards_deformed[multi_index]
@@ -303,18 +290,13 @@ def _process_individual_session(
     cell_templates: np.ndarray,
     counter: int
 ) -> None:
-    """Process individual session data (non-aligned).
+    """Process individual session data (non-aligned) and store it in a zarr file.
 
-    Parameters
-    ----------
-    zarr_file : zarr.Group
-        Open zarr file for writing
-    session_path : Path
-        Path to the session data
-    cell_templates : np.ndarray
-        Cell templates for reference
-    counter : int
-        Current session index
+    Args:
+        zarr_file (zarr.Group): Open zarr file for writing.
+        session_path (Path): Path to the session data.
+        cell_templates (np.ndarray): Cell templates for reference.
+        counter (int): Current session index.
     """
     # Read ops
     ops = np.load(session_path / "ops.npy", allow_pickle=True).item()
@@ -377,43 +359,36 @@ def _process_individual_session(
 def process_session_data(data_info: Dict[str, Any], settings: Dict[str, Any]) -> None:
     """Process and aggregate multi-day experimental data.
 
-    Takes data information and settings, then processes all sessions 
-    and stores them in a standardized zarr format.
+    This function takes data information and settings, processes all sessions, and 
+    stores the results in a standardized zarr format.
 
-    Parameters
-    ----------
-    data_info : dict
-        Information about data locations and parameters
-    settings : dict
-        Processing settings generated by parse_settings
+    Args:
+        data_info (dict): Information about data locations and parameters.
+        settings (dict): Processing settings generated by parse_settings.
 
-    Notes
-    -----
-    Zarr organization structure:
+    Raises:
+        NameError: If session paths are invalid or duplicated.
+        FileNotFoundError: If required files cannot be found.
 
-    Signal data:
-        * single_session/(F, Fdemix, Fneu, Fns, spks)/0  # Single session data
-        * multi_session/(F, Fdemix, Fneu, Fns, spks)/0   # Multi-session aligned data
+    Notes:
+        Zarr organization structure:
 
-    Cell masks:
-        * cells/single_session/0              # Cell data of original sessions
-        * cells/multi_session/original/0      # Multi-session cell masks in original coordinates
-        * cells/multi_session/registered/0    # Multi-session cell masks in registered coordinates
+        Signal data:
+            - single_session/(F, Fdemix, Fneu, Fns, spks)/0   # Single session data
+            - multi_session/(F, Fdemix, Fneu, Fns, spks)/0    # Multi-session aligned data
 
-    Images:
-        * images/original/0                   # Original session images
-        * images/registered/0                 # Registered session images
+        Cell masks:
+            - cells/single_session/0             # Cell data of original sessions
+            - cells/multi_session/original/0     # Multi-session cell masks in original coordinates
+            - cells/multi_session/registered/0   # Multi-session cell masks in registered coords
 
-    VR Info:
-        * gimbl/log/0                         # Raw pandas VR log
-        * gimbl/vr/0                          # Processed VR data
+        Images:
+            - images/original/0                  # Original session images
+            - images/registered/0                # Registered session images
 
-    Raises
-    ------
-    NameError
-        If session paths are invalid or duplicated
-    FileNotFoundError
-        If required files cannot be found
+        VR Info:
+            - gimbl/log/0                        # Raw pandas VR log
+            - gimbl/vr/0                         # Processed VR data
     """
     # Load info and set up directories
     multiday_folder = Path(data_info["data"]["local_processed_root"]) / data_info["data"]["output_folder"]
@@ -504,23 +479,3 @@ def find_gimbl_log(folder_path):
         raise NameError(f"Found multiple possible Gimbl log files in {folder_path}\nDo multiple json files include 'L(l)og' in their name?")
     log_file= log_file[0]
     return log_file
-
-
-class LogFile:
-    """Container for storing DataFrame logs in zarr format.
-
-    This class provides a simple wrapper to store pandas DataFrames
-    in the zarr file structure.
-
-    Parameters
-    ----------
-    value : pandas.DataFrame
-        DataFrame containing log data
-
-    Attributes
-    ----------
-    value : pandas.DataFrame
-        The stored DataFrame
-    """
-    def __init__(self, value: Any) -> None:
-        self.value = value
