@@ -1,4 +1,13 @@
+"""Functions for parsing Gimbl log files.
+
+This module provides utilities to extract and process data from Gimbl log files,
+including parsing session information, frames, positions, paths, camera data,
+rewards, and controller data. It converts the JSON log into structured DataFrame
+objects for downstream analysis.
+"""
+
 import json
+
 import numpy as np
 import pandas as pd
 

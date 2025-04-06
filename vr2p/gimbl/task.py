@@ -1,3 +1,10 @@
+"""Functions for processing lap information from Gimbl logs.
+
+This module provides utilities for extracting and analyzing lap-related data
+from experimental Gimbl logs, including parsing lap markers and determining
+precise lap start/end times based on position data.
+"""
+
 import numpy as np
 import pandas as pd
 
@@ -53,9 +60,8 @@ def get_lap_info(
 
     # Ensure we have enough detected periods for all logged laps
     if time_range.shape[0] < data.shape[0]:
-        raise NameError(
-            f"Fewer periods ({time_range.size}) detected than logged laps ({data.size})."
-        )
+        msg = f"Fewer periods ({time_range.size}) detected than logged laps ({data.size})."
+        raise NameError(msg)
 
     # For each lap, pick the closest possible end time not yet assigned
     assigned = np.zeros(time_range.shape[0], dtype=bool)

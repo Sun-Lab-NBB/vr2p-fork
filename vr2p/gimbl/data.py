@@ -1,8 +1,16 @@
+"""Data structures and utilities for working with Gimbl virtual reality experiment data.
+
+This module provides classes for representing, processing and analyzing virtual reality
+data collected from Gimbl VR systems, including position tracking, path information,
+controller data, and other experimental metrics.
+"""
+
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 from scipy.interpolate import Rbf, splev, splprep
 from scipy.spatial.distance import cdist
-from typing import Optional, Union
 
 from vr2p.gimbl.extract import movement_speed
 from vr2p.gimbl.transform import add_ranged_timestamp_values

@@ -1,5 +1,6 @@
 """VR2P: A library for analyzing virtual reality experimental data with
-longitudinal two-photon imaging."""
+longitudinal two-photon imaging.
+"""
 
 import os
 from pathlib import Path

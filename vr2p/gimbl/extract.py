@@ -1,3 +1,10 @@
+"""Utilities for extracting and analyzing movement data from Gimbl logs.
+
+This module provides functions to calculate movement speed and other metrics
+from position data stored in DataFrames, supporting analysis of animal
+movement patterns in virtual reality experiments.
+"""
+
 import numpy as np
 import pandas as pd
 

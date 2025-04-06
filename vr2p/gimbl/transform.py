@@ -1,3 +1,10 @@
+"""Utilities for transforming and merging Gimbl log data frames.
+
+This module provides functions for assigning frame information to Gimbl log data,
+filling missing frame data, and adding timestamp values to data frames based on
+time matching criteria.
+"""
+
 from typing import Optional
 
 import numpy as np
@@ -208,7 +215,8 @@ def add_ranged_timestamp_values(
 
     # Verify that requested 'fields' exist in 'timestamp_df'
     if not set(fields).issubset(timestamp_df.columns):
-        raise NameError("Requested fields are not present in the supplied 'timestamp_df'.")
+        msg = "Requested fields are not present in the supplied 'timestamp_df'."
+        raise NameError(msg)
 
     # Add any missing columns to 'df'
     missing_columns = list(set(fields).difference(set(df.columns)))
@@ -228,5 +236,4 @@ def add_ranged_timestamp_values(
 
     # Reorder columns to keep the newly added fields at the end
     fields_in_order = [col for col in fields if col in missing_columns]
-    df = df[original_columns + fields_in_order]
-    return df
+    return df[original_columns + fields_in_order]
