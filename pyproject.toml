@@ -53,6 +53,7 @@ dependencies = [
     "zarr>=2,<3",
     "dask>=2024,<2025",
     "gcsfs>=2024,<2025",
+    "s3fs>=2024,<2025",
 ]
 
 [project.urls]
