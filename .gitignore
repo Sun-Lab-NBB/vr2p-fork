@@ -54,6 +54,8 @@ doc/_build/
 
 # IDE specific
 .vscode
+.idea
+*.sublime-project
 
 # Development
 poetry.lock
