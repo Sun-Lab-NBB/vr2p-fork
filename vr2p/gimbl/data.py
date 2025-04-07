@@ -5,7 +5,8 @@ data collected from Gimbl VR systems, including position tracking, path informat
 controller data, and other experimental metrics.
 """
 
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, Any
 
 import numpy as np
 import pandas as pd
@@ -15,18 +16,17 @@ from scipy.spatial.distance import cdist
 from vr2p.gimbl.extract import movement_speed
 from vr2p.gimbl.transform import add_ranged_timestamp_values
 
-
+@dataclass
 class IdleData:
     """Represents idle state data, such as times when no movement or interaction occurs.
 
     Attributes:
         sound (Optional[str]): Placeholder for any sound or audio cue during idle states.
     """
-
-    def __init__(self) -> None:
-        self.sound: Optional[str] = None
+    sound: Optional[str] = None
 
 
+@dataclass
 class TimeData:
     """Represents time-based data, including timestamps and frame data.
 
@@ -34,12 +34,11 @@ class TimeData:
         time (Optional[np.ndarray]): Array of time points for the session.
         frame (Optional[pd.DataFrame]): DataFrame describing each frame (e.g., positions, states).
     """
-
-    def __init__(self) -> None:
-        self.time: Optional[np.ndarray] = None
-        self.frame: Optional[pd.DataFrame] = None
+    time: Optional[np.ndarray] = None
+    frame: Optional[pd.DataFrame] = None
 
 
+@dataclass
 class ControllerData:
     """Represents data from a VR controller, including settings and frame references.
 
@@ -48,13 +47,12 @@ class ControllerData:
         time (Optional[np.ndarray]): Time array for the controller updates.
         frame (Optional[pd.DataFrame]): DataFrame capturing controller states per frame.
     """
-
-    def __init__(self) -> None:
-        self.settings: Optional[dict] = None
-        self.time: Optional[np.ndarray] = None
-        self.frame: Optional[pd.DataFrame] = None
+    settings: Optional[dict[str, Any]] = None
+    time: Optional[np.ndarray] = None
+    frame: Optional[pd.DataFrame] = None
 
 
+@dataclass
 class GimblData:
     """Container class for VR Gimbl data, including positional, path, and controller information.
 
@@ -65,33 +63,37 @@ class GimblData:
     Attributes:
         time (Optional[np.ndarray]): Global time array for the session.
         info (Optional[dict]): General information or metadata for the session.
-        frames (Optional[pd.DataFrame]): Table of frame-based data (e.g., frame indices,
-            timestamps).
+        frames (Optional[pd.DataFrame]):
+            Table of frame-based data (e.g., frame indices, timestamps).
         position (TimeData): Time-based position data containing coordinates over time.
         path (TimeData): Time-based path data containing path names or positions.
-        camera (Optional[dict]): Camera-related information (e.g., camera parameters or
-            transforms).
+        camera (Optional[dict]):
+            Camera-related information (e.g., camera parameters or transforms).
         reward (Optional[dict]): Reward-related data (e.g., reward timings or amounts).
         lick (Optional[dict]): Lick-related data (e.g., lick detection or timing).
         idle (IdleData): Idle-related data containing placeholders for non-active states.
-        linear_controller (ControllerData): Data from a linear VR controller with settings and
-            frames.
-        spherical_controller (ControllerData): Data from a spherical VR controller with settings
-            and frames.
+        linear_controller (ControllerData):
+            Data from a linear VR controller with settings and frames.
+        spherical_controller (ControllerData):
+            Data from a spherical VR controller with settings and frames.
     """
 
-    def __init__(self):
-        self.time = None
-        self.info = None
-        self.frames = None
-        self.position = TimeData()
-        self.path = TimeData()
-        self.camera = None
-        self.reward = None
-        self.lick = None
-        self.idle = IdleData()
-        self.linear_controller = ControllerData()
-        self.spherical_controller = ControllerData()
+    # create aliases for backwards compatibility
+    TimeData = TimeData
+    IdleData = IdleData
+    ControllerData = ControllerData
+
+    time: Optional[np.ndarray] = None
+    info: Optional[dict[str, Any]] = None
+    frames: Optional[pd.DataFrame] = None
+    position: TimeData = field(default_factory=TimeData)
+    path: TimeData = field(default_factory=TimeData)
+    camera: Optional[dict[str, Any]] = None
+    reward: Optional[dict[str, Any]] = None
+    lick: Optional[dict[str, Any]] = None
+    idle: IdleData = field(default_factory=IdleData)
+    linear_controller: ControllerData = field(default_factory=ControllerData)
+    spherical_controller: ControllerData = field(default_factory=ControllerData)
 
     def path_to_xyz(self, values: np.ndarray, path: str) -> np.ndarray:
         """Interpolate from path positions (1D) to XYZ coordinates using a B-spline fit.
@@ -106,7 +108,6 @@ class GimblData:
         Raises:
             NameError: If the specified path is not found in self.path.frame.
         """
-        # get indices that are on the requested path.
         ind = self.path.frame["path"] == path
         if sum(ind) == 0:
             raise NameError(f"Could not find path with name {path}")
@@ -114,12 +115,10 @@ class GimblData:
         df = self.position.frame.loc[ind, ["x", "y", "z"]].copy()
         df["path"] = self.path.frame.loc[ind, "position"]
 
-        # Sort by path position and remove duplicates
         df = df.sort_values(by=["path"])
         df["path_r"] = df["path"].round(0)
         df = df.drop_duplicates(subset="path_r")
 
-        # Fit a B-spline over the x, y, z coordinates
         tck, _ = splprep([df["x"], df["y"], df["z"]], u=df["path"], s=0.01)
         xi, yi, zi = splev(values, tck)
 
@@ -144,31 +143,29 @@ class GimblData:
                 - "position": The path position (float).
                 - "path": The path name (string).
         """
-        # create fit for all paths.
         fits = []
         path_names = self.path.frame["path"].unique()
-        for path in path_names:
-            # get data of path.
-            ind = self.path.frame["path"]==path
-            df = self.position.frame.loc[ind,["x","y","z"]]
-            df["path"] = self.path.frame.loc[ind,"position"]
-            # sort.
-            df= df.sort_values(by=["path"])
-            # drop duplicates
+
+        for path_name in path_names:
+            ind = self.path.frame["path"] == path_name
+            df = self.position.frame.loc[ind, ["x", "y", "z"]]
+            df["path"] = self.path.frame.loc[ind, "position"]
+            df = df.sort_values(by=["path"])
             df["path_r"] = df["path"].round(0)
             df = df.drop_duplicates(subset="path_r")
-            # fit
-            fits.append(Rbf(df["x"], df["y"], df["z"], df["path"],smooth=0.01))
 
-        # find closest path each point and evaluate
-        obs = self.position.frame.loc[:,["x","y","z"]].to_numpy() # observed
-        dist = cdist(values,obs)
+            fits.append(Rbf(df["x"], df["y"], df["z"], df["path"], smooth=0.01))
+
+        obs = self.position.frame.loc[:, ["x", "y", "z"]].to_numpy()
+        dist = cdist(values, obs)
         result = []
         for i, value in enumerate(values):
-            ind = np.argmin(dist[i,:])
-            ind = np.argwhere(path_names == self.path.frame.loc[ind,"path"].item())[0][0]
-            pos = fits[ind](value[0],value[1],value[2])
-            result.append({"position":pos,"path":path_names[ind]})
+            closest_idx = np.argmin(dist[i, :])
+            path_val = self.path.frame.loc[closest_idx, "path"].item()
+            path_ind = np.argwhere(path_names == path_val)[0][0]
+
+            pos = fits[path_ind](value[0], value[1], value[2])
+            result.append({"position": pos, "path": path_names[path_ind]})
 
         return pd.DataFrame(result)
 
@@ -215,7 +212,11 @@ class Vr2pAccessor:
         Returns:
             pd.Series: The calculated rolling movement speed.
         """
-        return movement_speed(self._obj,window_size=window_size,ignore_threshold = ignore_threshold )
+        return movement_speed(
+            self._obj,
+            window_size=window_size,
+            ignore_threshold = ignore_threshold
+        )
 
     def ranged_values(self, df: pd.DataFrame, fields: list[str]) -> pd.DataFrame:
         """Add columns to DataFrame entries based on their timestamps.
@@ -235,51 +236,53 @@ class Vr2pAccessor:
         """
         return add_ranged_timestamp_values(self._obj,df,fields)
 
+@dataclass
 class FieldTypes:
     """Registry of field data types used in GIMBL data processing.
 
-    This class provides a centralized mapping of field names to their corresponding 
-    pandas data types to ensure consistent data type conversion when loading or 
+    This class provides a centralized mapping of field names to their corresponding
+    pandas data types to ensure consistent data type conversion when loading or
     processing data.
 
     Attributes:
-        fields (Dict[str, str]): Dictionary mapping field names to pandas dtypes.
+        fields (dict[str, str]): Dictionary mapping field names to pandas dtypes.
     """
+    fields: dict[str, str] = field(
+        default_factory=lambda: {
+            # Metadata fields
+            "data.name": "category",
+            "data.isActive": "bool",
+            "data.time": "category",
+            "data.project": "category",
+            "data.scene": "category",
+            "data.source": "category",
+            "data.loopPath": "bool",
+            "data.environment": "category",
 
-    fields: dict[str, str] = {
-        # Metadata fields
-        "data.name": "category",
-        "data.isActive": "bool",
-        "data.time": "category",
-        "data.project": "category",
-        "data.scene": "category",
-        "data.source": "category",
-        "data.loopPath": "bool",
-        "data.environment": "category",
-        
-        # Message fields
-        "msg": "category",
-        "data.msg": "category",
-        "data.msg.event": "category",
-        "data.msg.id": "category",
-        "data.msg.action": "category",
-        "data.msg.type": "category",
-        "data.msg.withSound": "bool",
-        "data.msg.frequency": "category",
-        
-        # Path and navigation fields
-        "data.pathName": "category",
-        "data.duration": "category",
-        "data.distance": "int",
-        
-        # Session state fields
-        "data.level": "int",
-        "data.epoch": "int",
-        "data.lap": "int",
-        "data.success": "bool",
-        
-        # Control fields
-        "data.gain.forward": "category",
-        "data.gain.backward": "category",
-        "data.inputSmooth": "category"
-    }
+            # Message fields
+            "msg": "category",
+            "data.msg": "category",
+            "data.msg.event": "category",
+            "data.msg.id": "category",
+            "data.msg.action": "category",
+            "data.msg.type": "category",
+            "data.msg.withSound": "bool",
+            "data.msg.frequency": "category",
+
+            # Path and navigation fields
+            "data.pathName": "category",
+            "data.duration": "category",
+            "data.distance": "int",
+
+            # Session state fields
+            "data.level": "int",
+            "data.epoch": "int",
+            "data.lap": "int",
+            "data.success": "bool",
+
+            # Control fields
+            "data.gain.forward": "category",
+            "data.gain.backward": "category",
+            "data.inputSmooth": "category"
+        }
+    )
